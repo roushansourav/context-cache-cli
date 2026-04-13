@@ -1,0 +1,46 @@
+[package]
+name = "context-cache-core"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+napi = { version = "2", features = ["napi4", "tokio_rt", "async"] }
+napi-derive = "2"
+rayon = { version = "1", features = [] }
+serde = { version = "1", features = ["derive"] }
+serde_json = { version = "1", features = ["preserve_order"] }
+blake3 = "1"
+ignore = "0.4"
+walkdir = "2"
+anyhow = "1"
+chrono = { version = "0.4", features = ["serde"] }
+regex = "1"
+once_cell = "1"
+glob = "0.3"
+rusqlite = { version = "0.31", features = ["bundled"] }
+reqwest = { version = "0.12", default-features = false, features = ["blocking", "json", "rustls-tls"] }
+tree-sitter = "0.20"
+tree-sitter-javascript = "0.20"
+tree-sitter-typescript = "0.20"
+tree-sitter-python = "0.20"
+tree-sitter-rust = "0.20"
+tree-sitter-go = "0.20"
+tree-sitter-java = "0.20"
+tree-sitter-c = "0.20"
+tree-sitter-cpp = "0.20"
+tree-sitter-ruby = "0.20"
+tree-sitter-c-sharp = "0.20"
+
+[build-dependencies]
+napi-build = "2"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+

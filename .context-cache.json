@@ -1,0 +1,24 @@
+{
+  "preset": "generic",
+  "mode": "full",
+  "include": ["**/*"],
+  "exclude": [
+    "**/.git/**",
+    "**/node_modules/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.cache/**",
+    "**/src/lib/rust/target/**",
+    "**/*.min.*",
+    "**/*.lock"
+  ],
+  "textExtensions": [
+    ".md", ".mdx", ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
+    ".json", ".yaml", ".yml", ".txt", ".css", ".scss", ".sass", ".less",
+    ".html", ".graphql", ".gql", ".py", ".java", ".kt", ".kts", ".go",
+    ".rs", ".rb", ".php", ".cs", ".sh", ".zsh", ".bash", ".toml",
+    ".ini", ".conf", ".sql", ".xml", ".c", ".h", ".cpp", ".hpp"
+  ],
+  "maxFiles": 0,
+  "maxFileChars": 4000
+}
