@@ -17,10 +17,22 @@
     "copy:node": "node scripts/copy-binding.js",
     "build:native": "napi build --platform --release --manifest-path src/lib/rust/Cargo.toml --output-dir .",
     "build:ts": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint . --max-warnings 0",
+    "lint:fix": "npm run lint -- --fix",
+    "format:check": "prettier --check .",
+    "format:write": "prettier --write .",
     "build": "npm run build:rs && npm run copy:node && npm run build:ts",
     "artifacts": "napi artifacts",
     "prepublish:napi": "napi prepublish -t npm",
     "test": "npm run build && node --test tests/*.test.js",
+    "rust:fmt": "cargo fmt --manifest-path src/lib/rust/Cargo.toml --all",
+    "rust:fmt:check": "cargo fmt --manifest-path src/lib/rust/Cargo.toml --all --check",
+    "rust:clippy": "cargo clippy --manifest-path src/lib/rust/Cargo.toml --all-targets --all-features -- -D warnings",
+    "rust:lint": "npm run rust:fmt:check && npm run rust:clippy",
+    "prepare": "husky",
+    "commitlint": "commitlint --from=HEAD~1 --to=HEAD",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run rust:lint && npm test",
     "prepublishOnly": "npm run build && npm run prepublish:napi"
   },
   "napi": {
@@ -55,11 +67,34 @@
     "context-cache-win32-x64-msvc": "0.1.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^19.8.1",
+    "@commitlint/config-conventional": "^19.8.1",
+    "@eslint/js": "^9.39.1",
     "@napi-rs/cli": "^2.18.4",
+    "@typescript-eslint/eslint-plugin": "^8.29.0",
+    "@typescript-eslint/parser": "^8.29.0",
     "@types/node": "^22.0.0",
-    "typescript": "^5.4.0"
+    "eslint": "^9.39.1",
+    "eslint-config-prettier": "^10.1.2",
+    "globals": "^16.4.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.0",
+    "prettier": "^3.5.3",
+    "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=20"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,cjs,mjs}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,yaml}": [
+      "prettier --write"
+    ],
+    "*.rs": [
+      "rustfmt --edition 2024"
+    ]
   }
 }

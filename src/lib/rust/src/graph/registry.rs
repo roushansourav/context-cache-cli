@@ -1,7 +1,7 @@
 use std::cmp::Ordering;
 use std::path::{Path, PathBuf};
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use rusqlite::Connection;
 use serde::{Deserialize, Serialize};
 
@@ -52,7 +52,8 @@ fn save_registry(entries: &[RepoEntry]) -> Result<()> {
 
 pub fn register_repo(repo_root: &Path, alias: Option<&str>) -> Result<RepoEntry> {
     let alias = alias.map(str::to_string).unwrap_or_else(|| {
-        repo_root.file_name()
+        repo_root
+            .file_name()
             .map(|n| n.to_string_lossy().into_owned())
             .unwrap_or_else(|| "unknown".to_string())
     });
@@ -107,11 +108,16 @@ pub fn cross_repo_search(
     let filtered: Vec<&RepoEntry> = if aliases.is_empty() {
         repos.iter().collect()
     } else {
-        repos.iter().filter(|r| aliases.contains(&r.alias)).collect()
+        repos
+            .iter()
+            .filter(|r| aliases.contains(&r.alias))
+            .collect()
     };
 
-    let mut rrf_scores: std::collections::HashMap<(String, String), f64> = std::collections::HashMap::new();
-    let mut result_meta: std::collections::HashMap<(String, String), CrossRepoSearchResult> = std::collections::HashMap::new();
+    let mut rrf_scores: std::collections::HashMap<(String, String), f64> =
+        std::collections::HashMap::new();
+    let mut result_meta: std::collections::HashMap<(String, String), CrossRepoSearchResult> =
+        std::collections::HashMap::new();
 
     let candidate_limit = (limit * 3).max(60);
     for repo in filtered {
@@ -121,14 +127,16 @@ pub fn cross_repo_search(
         for (rank, row) in rows.iter().enumerate() {
             let key = (repo.alias.clone(), row.qualified_name.clone());
             *rrf_scores.entry(key.clone()).or_insert(0.0) += 1.0 / (RRF_K + rank as f64 + 1.0);
-            result_meta.entry(key).or_insert_with(|| CrossRepoSearchResult {
-                repo_alias: repo.alias.clone(),
-                repo_path: repo.path.clone(),
-                qualified_name: row.qualified_name.clone(),
-                kind: row.kind.clone(),
-                file_path: row.file_path.clone(),
-                score: 0.0,
-            });
+            result_meta
+                .entry(key)
+                .or_insert_with(|| CrossRepoSearchResult {
+                    repo_alias: repo.alias.clone(),
+                    repo_path: repo.path.clone(),
+                    qualified_name: row.qualified_name.clone(),
+                    kind: row.kind.clone(),
+                    file_path: row.file_path.clone(),
+                    score: 0.0,
+                });
         }
     }
 
@@ -154,14 +162,17 @@ pub fn cross_repo_impact(
     let filtered: Vec<&RepoEntry> = if aliases.is_empty() {
         repos.iter().collect()
     } else {
-        repos.iter().filter(|r| aliases.contains(&r.alias)).collect()
+        repos
+            .iter()
+            .filter(|r| aliases.contains(&r.alias))
+            .collect()
     };
 
     let mut out = Vec::new();
     for repo in filtered {
         let repo_path = Path::new(&repo.path);
-        let files = super::query::impact_radius(repo_path, changed_files, max_depth)
-            .unwrap_or_default();
+        let files =
+            super::query::impact_radius(repo_path, changed_files, max_depth).unwrap_or_default();
         out.push((repo.alias.clone(), files));
     }
     Ok(out)

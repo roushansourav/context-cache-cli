@@ -4,11 +4,6 @@ pub fn hash_bytes(data: &[u8]) -> String {
 }
 
 /// Cheap file-change probe: compare mtime + size before re-reading content.
-pub fn file_changed(
-    mtime_ms: i64,
-    size: u64,
-    prev_mtime_ms: i64,
-    prev_size: u64,
-) -> bool {
+pub fn file_changed(mtime_ms: i64, size: u64, prev_mtime_ms: i64, prev_size: u64) -> bool {
     mtime_ms != prev_mtime_ms || size != prev_size
 }

@@ -17,7 +17,16 @@ pub fn is_class_node(kind: &str, lang: Lang) -> bool {
                 || kind == "interface_declaration"
                 || kind == "struct_declaration"
         }
-        Lang::Kotlin | Lang::Scala | Lang::Swift | Lang::Solidity | Lang::Dart | Lang::R | Lang::Perl | Lang::Vue | Lang::Notebook | Lang::Bash => false,
+        Lang::Kotlin
+        | Lang::Scala
+        | Lang::Swift
+        | Lang::Solidity
+        | Lang::Dart
+        | Lang::R
+        | Lang::Perl
+        | Lang::Vue
+        | Lang::Notebook
+        | Lang::Bash => false,
         Lang::Lua => false,
     }
 }
@@ -33,7 +42,16 @@ pub fn is_import_node(kind: &str, lang: Lang) -> bool {
         Lang::Ruby => kind == "call",
         Lang::Php => kind == "namespace_use_declaration",
         Lang::CSharp => kind == "using_directive",
-        Lang::Kotlin | Lang::Scala | Lang::Swift | Lang::Solidity | Lang::Dart | Lang::R | Lang::Perl | Lang::Vue | Lang::Notebook | Lang::Bash => false,
+        Lang::Kotlin
+        | Lang::Scala
+        | Lang::Swift
+        | Lang::Solidity
+        | Lang::Dart
+        | Lang::R
+        | Lang::Perl
+        | Lang::Vue
+        | Lang::Notebook
+        | Lang::Bash => false,
         Lang::Lua => kind == "function_call",
     }
 }
@@ -55,7 +73,16 @@ pub fn is_call_node(kind: &str, lang: Lang) -> bool {
                 || kind == "object_creation_expression"
         }
         Lang::CSharp => kind == "invocation_expression" || kind == "object_creation_expression",
-        Lang::Kotlin | Lang::Scala | Lang::Swift | Lang::Solidity | Lang::Dart | Lang::R | Lang::Perl | Lang::Vue | Lang::Notebook | Lang::Bash => false,
+        Lang::Kotlin
+        | Lang::Scala
+        | Lang::Swift
+        | Lang::Solidity
+        | Lang::Dart
+        | Lang::R
+        | Lang::Perl
+        | Lang::Vue
+        | Lang::Notebook
+        | Lang::Bash => false,
         Lang::Lua => kind == "function_call",
     }
 }

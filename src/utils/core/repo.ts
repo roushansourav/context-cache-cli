@@ -25,7 +25,10 @@ export function getChangedFiles(repoRoot: string, base: string): string[] {
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim();
     if (!out) return [];
-    return out.split('\n').map((s) => s.replace(/\\/g, '/').trim()).filter(Boolean);
+    return out
+      .split('\n')
+      .map((s) => s.replace(/\\/g, '/').trim())
+      .filter(Boolean);
   } catch {
     return [];
   }

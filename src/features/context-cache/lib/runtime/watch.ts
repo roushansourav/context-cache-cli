@@ -1,9 +1,8 @@
 import { refresh } from '../../../../index';
 import { DEFAULT_TEXT_EXTENSIONS } from '../../../../constants/core/constants';
+import { watch } from 'node:fs';
 
 export function watchRepo(repoRoot: string): void {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const { watch } = require('node:fs') as typeof import('node:fs');
   let timer: ReturnType<typeof setTimeout> | null = null;
 
   const scheduleRefresh = () => {
@@ -12,7 +11,9 @@ export function watchRepo(repoRoot: string): void {
       try {
         const result = refresh(repoRoot);
         const { fileCount, changedCount } = result.payload;
-        console.log(`[${new Date().toISOString()}] refreshed files=${fileCount} changed=${changedCount}`);
+        console.log(
+          `[${new Date().toISOString()}] refreshed files=${fileCount} changed=${changedCount}`,
+        );
       } catch (err) {
         console.error('Refresh error:', err instanceof Error ? err.message : err);
       }
@@ -29,5 +30,8 @@ export function watchRepo(repoRoot: string): void {
     scheduleRefresh();
   });
 
-  process.on('SIGINT', () => { watcher.close(); process.exit(0); });
+  process.on('SIGINT', () => {
+    watcher.close();
+    process.exit(0);
+  });
 }

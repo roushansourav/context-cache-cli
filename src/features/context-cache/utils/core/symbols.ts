@@ -14,7 +14,11 @@ export function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-export function findSymbolDefinitions(filePath: string, content: string, symbol: string): SymbolDef[] {
+export function findSymbolDefinitions(
+  filePath: string,
+  content: string,
+  symbol: string,
+): SymbolDef[] {
   const defs: SymbolDef[] = [];
   const lines = content.split('\n');
   const escaped = escapeRegExp(symbol);
@@ -29,13 +33,20 @@ export function findSymbolDefinitions(filePath: string, content: string, symbol:
   for (let i = 0; i < lines.length; i += 1) {
     const line = lines[i] ?? '';
     for (const p of patterns) {
-      if (p.re.test(line)) { defs.push({ file: filePath, line: i + 1, kind: p.kind }); break; }
+      if (p.re.test(line)) {
+        defs.push({ file: filePath, line: i + 1, kind: p.kind });
+        break;
+      }
     }
   }
   return defs;
 }
 
-export function findSymbolReferences(filePath: string, content: string, symbol: string): SymbolRef[] {
+export function findSymbolReferences(
+  filePath: string,
+  content: string,
+  symbol: string,
+): SymbolRef[] {
   const refs: SymbolRef[] = [];
   const lines = content.split('\n');
   const re = new RegExp(`\\b${escapeRegExp(symbol)}\\b`);

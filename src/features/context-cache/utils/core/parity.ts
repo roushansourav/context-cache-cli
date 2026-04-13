@@ -15,11 +15,16 @@ function tokenizeMcpTool(name: string): Set<string> {
 
 function computeOverlap(a: Set<string>, b: Set<string>): number {
   let count = 0;
-  for (const token of a) { if (b.has(token)) count += 1; }
+  for (const token of a) {
+    if (b.has(token)) count += 1;
+  }
   return count;
 }
 
-function findBestMatch(cliCommand: string, mcpToolNames: ReadonlyArray<string>): string | undefined {
+function findBestMatch(
+  cliCommand: string,
+  mcpToolNames: ReadonlyArray<string>,
+): string | undefined {
   const cliTokens = tokenizeCliCommand(cliCommand);
   let bestMatch: string | undefined;
   let bestScore = 0;

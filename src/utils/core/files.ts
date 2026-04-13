@@ -33,21 +33,38 @@ export function stripQuotes(input: string): string {
 export function extensionCandidates(basePath: string): string[] {
   return [
     basePath,
-    `${basePath}.ts`, `${basePath}.tsx`, `${basePath}.js`, `${basePath}.jsx`,
-    `${basePath}.mjs`, `${basePath}.cjs`, `${basePath}.py`,
-    `${basePath}/index.ts`, `${basePath}/index.tsx`, `${basePath}/index.js`,
-    `${basePath}/index.jsx`, `${basePath}/index.mjs`, `${basePath}/index.cjs`,
+    `${basePath}.ts`,
+    `${basePath}.tsx`,
+    `${basePath}.js`,
+    `${basePath}.jsx`,
+    `${basePath}.mjs`,
+    `${basePath}.cjs`,
+    `${basePath}.py`,
+    `${basePath}/index.ts`,
+    `${basePath}/index.tsx`,
+    `${basePath}/index.js`,
+    `${basePath}/index.jsx`,
+    `${basePath}/index.mjs`,
+    `${basePath}/index.cjs`,
     `${basePath}/__init__.py`,
   ];
 }
 
-export function resolveRelativeImport(fromFile: string, specifier: string, knownFiles: Set<string>): string | null {
+export function resolveRelativeImport(
+  fromFile: string,
+  specifier: string,
+  knownFiles: Set<string>,
+): string | null {
   if (!specifier.startsWith('.')) return null;
   const fromParts = toPosixPath(fromFile).split('/');
   fromParts.pop();
   for (const part of specifier.split('/')) {
     if (!part || part === '.') continue;
-    if (part === '..') { fromParts.pop(); } else { fromParts.push(part); }
+    if (part === '..') {
+      fromParts.pop();
+    } else {
+      fromParts.push(part);
+    }
   }
   const base = fromParts.join('/');
   return extensionCandidates(base).find((c) => knownFiles.has(c)) ?? null;
@@ -78,14 +95,21 @@ export function buildReverseDependencyMap(payload: CachePayload): Map<string, Se
       const target = resolveRelativeImport(from, spec, knownFiles);
       if (!target) continue;
       let set = reverse.get(target);
-      if (!set) { set = new Set<string>(); reverse.set(target, set); }
+      if (!set) {
+        set = new Set<string>();
+        reverse.set(target, set);
+      }
       set.add(from);
     }
   }
   return reverse;
 }
 
-export function bfsImpact(seeds: string[], reverse: Map<string, Set<string>>, maxDepth: number): Map<string, number> {
+export function bfsImpact(
+  seeds: string[],
+  reverse: Map<string, Set<string>>,
+  maxDepth: number,
+): Map<string, number> {
   const depthMap = new Map<string, number>();
   let frontier = new Set(seeds);
   for (const seed of frontier) depthMap.set(seed, 0);
@@ -95,7 +119,10 @@ export function bfsImpact(seeds: string[], reverse: Map<string, Set<string>>, ma
       const dependents = reverse.get(current);
       if (!dependents) continue;
       for (const dep of dependents) {
-        if (!depthMap.has(dep)) { depthMap.set(dep, depth); next.add(dep); }
+        if (!depthMap.has(dep)) {
+          depthMap.set(dep, depth);
+          next.add(dep);
+        }
       }
     }
     if (next.size === 0) break;
@@ -114,7 +141,10 @@ export function runImpactRadius(
   const payload = loadCachePayload(repoRoot);
   const maxDepth = Number.parseInt(opts.depth, 10) || 3;
   const changed = opts.changed
-    ? opts.changed.split(',').map((p) => toPosixPath(stripQuotes(p.trim()))).filter(Boolean)
+    ? opts.changed
+        .split(',')
+        .map((p) => toPosixPath(stripQuotes(p.trim())))
+        .filter(Boolean)
     : getChangedFilesFn(repoRoot, opts.base);
 
   if (changed.length === 0) {

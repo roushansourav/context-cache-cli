@@ -22,8 +22,13 @@ export function startMcpServer(repoRoot: string): void {
     try {
       if (req.method === 'initialize') {
         writeMcpMessage({
-          jsonrpc: '2.0', id: req.id ?? null,
-          result: { protocolVersion: '2024-11-05', serverInfo: { name: 'context-cache', version: '0.2.0' }, capabilities: { tools: {}, prompts: {} } },
+          jsonrpc: '2.0',
+          id: req.id ?? null,
+          result: {
+            protocolVersion: '2024-11-05',
+            serverInfo: { name: 'context-cache', version: '0.2.0' },
+            capabilities: { tools: {}, prompts: {} },
+          },
         });
         return;
       }
@@ -36,7 +41,10 @@ export function startMcpServer(repoRoot: string): void {
       }
 
       if (req.method === 'prompts/list') {
-        const prompts = Object.keys(MCP_PROMPTS).map((name) => ({ name, description: `context-cache prompt: ${name}` }));
+        const prompts = Object.keys(MCP_PROMPTS).map((name) => ({
+          name,
+          description: `context-cache prompt: ${name}`,
+        }));
         writeMcpMessage({ jsonrpc: '2.0', id: req.id ?? null, result: { prompts } });
         return;
       }
@@ -46,8 +54,12 @@ export function startMcpServer(repoRoot: string): void {
         const body = MCP_PROMPTS[name];
         if (!body) throw new Error(`Unknown prompt: ${name}`);
         writeMcpMessage({
-          jsonrpc: '2.0', id: req.id ?? null,
-          result: { description: `Prompt template for ${name}`, messages: [{ role: 'user', content: { type: 'text', text: body } }] },
+          jsonrpc: '2.0',
+          id: req.id ?? null,
+          result: {
+            description: `Prompt template for ${name}`,
+            messages: [{ role: 'user', content: { type: 'text', text: body } }],
+          },
         });
         return;
       }
@@ -61,10 +73,15 @@ export function startMcpServer(repoRoot: string): void {
         return;
       }
 
-      writeMcpMessage({ jsonrpc: '2.0', id: req.id ?? null, error: { code: -32601, message: `Method not found: ${req.method}` } });
+      writeMcpMessage({
+        jsonrpc: '2.0',
+        id: req.id ?? null,
+        error: { code: -32601, message: `Method not found: ${req.method}` },
+      });
     } catch (err) {
       writeMcpMessage({
-        jsonrpc: '2.0', id: req.id ?? null,
+        jsonrpc: '2.0',
+        id: req.id ?? null,
         error: { code: -32000, message: err instanceof Error ? err.message : String(err) },
       });
     }
@@ -77,15 +94,25 @@ export function startMcpServer(repoRoot: string): void {
       if (headerEnd < 0) return;
       const header = buffer.subarray(0, headerEnd).toString('utf8');
       const m = header.match(/Content-Length:\s*(\d+)/i);
-      if (!m) { buffer = buffer.subarray(headerEnd + 4); continue; }
+      if (!m) {
+        buffer = buffer.subarray(headerEnd + 4);
+        continue;
+      }
       const length = Number.parseInt(m[1], 10);
       const total = headerEnd + 4 + length;
       if (buffer.length < total) return;
       const body = buffer.subarray(headerEnd + 4, total).toString('utf8');
       buffer = buffer.subarray(total);
       let req: JsonRpcRequest | null = null;
-      try { req = JSON.parse(body) as JsonRpcRequest; }
-      catch { writeMcpMessage({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } }); }
+      try {
+        req = JSON.parse(body) as JsonRpcRequest;
+      } catch {
+        writeMcpMessage({
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error' },
+        });
+      }
       if (req) handle(req);
     }
   });

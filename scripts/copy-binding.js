@@ -6,28 +6,18 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
-
-const arch = os.arch();  // arm64, x64
-const platform = os.platform(); // darwin, linux, win32
-
-const platformMap = {
-  darwin: 'apple-darwin',
-  linux: 'unknown-linux-gnu',
-  win32: 'pc-windows-msvc',
-};
-
-const archMap = {
-  arm64: 'aarch64',
-  x64: 'x86_64',
-};
-
-const rustArch = archMap[arch] || arch;
-const rustPlatform = platformMap[platform] || platform;
-const triple = `${rustArch}-${rustPlatform}`;
 
 const candidates = [
-  path.join(__dirname, '..', 'src', 'lib', 'rust', 'target', 'release', 'libcontext_cache_core.dylib'),
+  path.join(
+    __dirname,
+    '..',
+    'src',
+    'lib',
+    'rust',
+    'target',
+    'release',
+    'libcontext_cache_core.dylib',
+  ),
   path.join(__dirname, '..', 'src', 'lib', 'rust', 'target', 'release', 'libcontext_cache_core.so'),
   path.join(__dirname, '..', 'src', 'lib', 'rust', 'target', 'release', 'context_cache_core.dll'),
 ];

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use anyhow::Result;
 use chrono::Utc;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
 use super::schema::init_schema;
 use super::types::{ArchitectureOverview, CommunityDetail, CommunityRow, FlowDetail, FlowRow};
@@ -32,7 +32,7 @@ pub fn list_flows(repo_root: &Path, limit: i64) -> Result<Vec<FlowRow>> {
     let conn = Connection::open(&db_path)?;
     init_schema(&conn)?;
 
-    let lim = limit.max(1).min(200);
+    let lim = limit.clamp(1, 200);
     let mut stmt = conn.prepare(
         "SELECT id, name, entry, file_count, node_count, criticality
          FROM flows ORDER BY criticality DESC, node_count DESC LIMIT ?1",
@@ -41,14 +41,22 @@ pub fn list_flows(repo_root: &Path, limit: i64) -> Result<Vec<FlowRow>> {
     let mut out = Vec::new();
     while let Some(row) = rows.next()? {
         out.push(FlowRow {
-            id: row.get(0)?, name: row.get(1)?, entry: row.get(2)?,
-            file_count: row.get(3)?, node_count: row.get(4)?, criticality: row.get(5)?,
+            id: row.get(0)?,
+            name: row.get(1)?,
+            entry: row.get(2)?,
+            file_count: row.get(3)?,
+            node_count: row.get(4)?,
+            criticality: row.get(5)?,
         });
     }
     Ok(out)
 }
 
-pub fn get_flow(repo_root: &Path, flow_id: Option<i64>, flow_name: Option<&str>) -> Result<Option<FlowDetail>> {
+pub fn get_flow(
+    repo_root: &Path,
+    flow_id: Option<i64>,
+    flow_name: Option<&str>,
+) -> Result<Option<FlowDetail>> {
     let db_path = graph_path(repo_root);
     let conn = Connection::open(&db_path)?;
     init_schema(&conn)?;
@@ -100,14 +108,18 @@ pub fn get_flow(repo_root: &Path, flow_id: Option<i64>, flow_name: Option<&str>)
     }))
 }
 
-pub fn affected_flows(repo_root: &Path, changed_files: &[String], limit: i64) -> Result<Vec<FlowRow>> {
+pub fn affected_flows(
+    repo_root: &Path,
+    changed_files: &[String],
+    limit: i64,
+) -> Result<Vec<FlowRow>> {
     let db_path = graph_path(repo_root);
     let conn = Connection::open(&db_path)?;
     init_schema(&conn)?;
 
     let mut seen = HashSet::new();
     let mut out = Vec::new();
-    let lim = limit.max(1).min(200) as usize;
+    let lim = limit.clamp(1, 200) as usize;
 
     for file in changed_files {
         let file_path = to_posix(file);
@@ -121,16 +133,28 @@ pub fn affected_flows(repo_root: &Path, changed_files: &[String], limit: i64) ->
             let id: i64 = row.get(0)?;
             if seen.insert(id) {
                 out.push(FlowRow {
-                    id, name: row.get(1)?, entry: row.get(2)?,
-                    file_count: row.get(3)?, node_count: row.get(4)?, criticality: row.get(5)?,
+                    id,
+                    name: row.get(1)?,
+                    entry: row.get(2)?,
+                    file_count: row.get(3)?,
+                    node_count: row.get(4)?,
+                    criticality: row.get(5)?,
                 });
             }
-            if out.len() >= lim { break; }
+            if out.len() >= lim {
+                break;
+            }
         }
-        if out.len() >= lim { break; }
+        if out.len() >= lim {
+            break;
+        }
     }
 
-    out.sort_by(|a, b| b.criticality.partial_cmp(&a.criticality).unwrap_or(Ordering::Equal));
+    out.sort_by(|a, b| {
+        b.criticality
+            .partial_cmp(&a.criticality)
+            .unwrap_or(Ordering::Equal)
+    });
     Ok(out)
 }
 
@@ -139,7 +163,7 @@ pub fn list_communities(repo_root: &Path, limit: i64) -> Result<Vec<CommunityRow
     let conn = Connection::open(&db_path)?;
     init_schema(&conn)?;
 
-    let lim = limit.max(1).min(200);
+    let lim = limit.clamp(1, 200);
     let mut stmt = conn.prepare(
         "SELECT id, name, file_count, node_count, coupling FROM communities
          ORDER BY node_count DESC, file_count DESC LIMIT ?1",
@@ -148,14 +172,22 @@ pub fn list_communities(repo_root: &Path, limit: i64) -> Result<Vec<CommunityRow
     let mut out = Vec::new();
     while let Some(row) = rows.next()? {
         out.push(CommunityRow {
-            id: row.get(0)?, name: row.get(1)?, file_count: row.get(2)?,
-            node_count: row.get(3)?, coupling: row.get(4)?,
+            id: row.get(0)?,
+            name: row.get(1)?,
+            file_count: row.get(2)?,
+            node_count: row.get(3)?,
+            coupling: row.get(4)?,
         });
     }
     Ok(out)
 }
 
-pub fn get_community(repo_root: &Path, community_id: Option<i64>, community_name: Option<&str>, include_members: bool) -> Result<Option<CommunityDetail>> {
+pub fn get_community(
+    repo_root: &Path,
+    community_id: Option<i64>,
+    community_name: Option<&str>,
+    include_members: bool,
+) -> Result<Option<CommunityDetail>> {
     let db_path = graph_path(repo_root);
     let conn = Connection::open(&db_path)?;
     init_schema(&conn)?;
@@ -221,16 +253,25 @@ pub fn architecture_overview(repo_root: &Path) -> Result<ArchitectureOverview> {
     let mut warnings = Vec::new();
     for c in &communities {
         if c.coupling > 200 {
-            warnings.push(format!("High coupling in {} ({} cross-community edges)", c.name, c.coupling));
+            warnings.push(format!(
+                "High coupling in {} ({} cross-community edges)",
+                c.name, c.coupling
+            ));
         }
         if c.file_count == 1 && c.node_count > 80 {
-            warnings.push(format!("Large singleton community {} ({} nodes)", c.name, c.node_count));
+            warnings.push(format!(
+                "Large singleton community {} ({} nodes)",
+                c.name, c.node_count
+            ));
         }
     }
     if warnings.is_empty() {
         warnings.push("No major architecture warnings detected".to_string());
     }
-    Ok(ArchitectureOverview { communities, warnings })
+    Ok(ArchitectureOverview {
+        communities,
+        warnings,
+    })
 }
 
 fn rebuild_communities(conn: &Connection) -> Result<i64> {
@@ -246,7 +287,10 @@ fn rebuild_communities(conn: &Connection) -> Result<i64> {
         let count: i64 = row.get(1)?;
         let community = top_segment(&file_path);
         // perf-entry-api: use .entry() to avoid double lookup
-        comm_files.entry(community.clone()).or_default().insert(file_path);
+        comm_files
+            .entry(community.clone())
+            .or_default()
+            .insert(file_path);
         *comm_nodes.entry(community).or_insert(0) += count;
     }
 
@@ -278,7 +322,10 @@ fn rebuild_communities(conn: &Connection) -> Result<i64> {
 
     for (name, cpl) in coupling {
         if let Some(id) = ids.get(&name) {
-            conn.execute("UPDATE communities SET coupling=?1 WHERE id=?2", params![cpl, id])?;
+            conn.execute(
+                "UPDATE communities SET coupling=?1 WHERE id=?2",
+                params![cpl, id],
+            )?;
         }
     }
 
@@ -296,7 +343,11 @@ fn rebuild_flows(conn: &Connection) -> Result<i64> {
     )?;
     let mut rows = stmt.query([])?;
     while let Some(row) = rows.next()? {
-        entries.push((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?));
+        entries.push((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ));
     }
 
     let mut hinted = conn.prepare(
@@ -306,16 +357,24 @@ fn rebuild_flows(conn: &Connection) -> Result<i64> {
     )?;
     let mut hrows = hinted.query([])?;
     while let Some(row) = hrows.next()? {
-        entries.push((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?));
+        entries.push((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, String>(2)?,
+        ));
     }
 
     let mut seen = HashSet::new();
     let mut count = 0i64;
 
     for (entry_q, entry_name, _file) in entries {
-        if !seen.insert(entry_q.clone()) { continue; }
+        if !seen.insert(entry_q.clone()) {
+            continue;
+        }
         let (node_count, files) = trace_call_subgraph(conn, &entry_q, 4)?;
-        if node_count == 0 { continue; }
+        if node_count == 0 {
+            continue;
+        }
 
         let file_count = files.len() as i64;
         let criticality = (node_count as f64) + (file_count as f64 * 1.5);
@@ -334,13 +393,19 @@ fn rebuild_flows(conn: &Connection) -> Result<i64> {
             )?;
         }
         count += 1;
-        if count >= 300 { break; }
+        if count >= 300 {
+            break;
+        }
     }
 
     Ok(count)
 }
 
-fn trace_call_subgraph(conn: &Connection, entry_q: &str, max_depth: i64) -> Result<(usize, HashSet<String>)> {
+fn trace_call_subgraph(
+    conn: &Connection,
+    entry_q: &str,
+    max_depth: i64,
+) -> Result<(usize, HashSet<String>)> {
     let mut visited: HashSet<String> = HashSet::new();
     let mut files: HashSet<String> = HashSet::new();
     let mut queue: VecDeque<(String, i64)> = VecDeque::new();
@@ -351,8 +416,12 @@ fn trace_call_subgraph(conn: &Connection, entry_q: &str, max_depth: i64) -> Resu
     let mut stmt = conn.prepare("SELECT target FROM edges WHERE kind='calls' AND source=?1")?;
 
     while let Some((node, depth)) = queue.pop_front() {
-        if let Some((f, _)) = node.split_once("::") { files.insert(f.to_string()); }
-        if depth >= max_depth { continue; }
+        if let Some((f, _)) = node.split_once("::") {
+            files.insert(f.to_string());
+        }
+        if depth >= max_depth {
+            continue;
+        }
 
         let mut rows = stmt.query(params![node])?;
         while let Some(row) = rows.next()? {
@@ -365,7 +434,11 @@ fn trace_call_subgraph(conn: &Connection, entry_q: &str, max_depth: i64) -> Resu
     Ok((visited.len(), files))
 }
 
-fn trace_flow_details(conn: &Connection, entry_q: &str, max_depth: i64) -> Result<(Vec<String>, Vec<String>)> {
+fn trace_flow_details(
+    conn: &Connection,
+    entry_q: &str,
+    max_depth: i64,
+) -> Result<(Vec<String>, Vec<String>)> {
     let mut visited: HashSet<String> = HashSet::new();
     let mut files: HashSet<String> = HashSet::new();
     let mut queue: VecDeque<(String, i64)> = VecDeque::new();

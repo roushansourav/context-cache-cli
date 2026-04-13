@@ -53,7 +53,12 @@ pub fn detect_language(file_path: &str) -> Option<Lang> {
     if fp.ends_with(".c") || fp.ends_with(".h") {
         return Some(Lang::C);
     }
-    if fp.ends_with(".cpp") || fp.ends_with(".cc") || fp.ends_with(".cxx") || fp.ends_with(".hpp") || fp.ends_with(".hh") {
+    if fp.ends_with(".cpp")
+        || fp.ends_with(".cc")
+        || fp.ends_with(".cxx")
+        || fp.ends_with(".hpp")
+        || fp.ends_with(".hh")
+    {
         return Some(Lang::Cpp);
     }
     if fp.ends_with(".rb") {

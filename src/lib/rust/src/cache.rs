@@ -1,12 +1,12 @@
+use anyhow::Result;
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use serde::{Deserialize, Serialize};
-use anyhow::Result;
 
 use crate::config::CacheConfig;
-use crate::hasher::{hash_bytes, file_changed};
+use crate::hasher::{file_changed, hash_bytes};
 use crate::summarize::extract_summary;
-use crate::walker::{collect_files, CandidateFile};
+use crate::walker::{CandidateFile, collect_files};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -41,7 +41,9 @@ pub fn cache_path(repo_root: &Path) -> PathBuf {
 
 fn cache_store_dir() -> PathBuf {
     let home = std::env::var("HOME").unwrap_or_else(|_| "/tmp".into());
-    let p = PathBuf::from(home).join(".context-cache-store").join("repos");
+    let p = PathBuf::from(home)
+        .join(".context-cache-store")
+        .join("repos");
     std::fs::create_dir_all(&p).ok();
     p
 }
@@ -91,7 +93,13 @@ pub fn refresh(repo_root: &Path) -> Result<RefreshResult> {
 
     let results: Vec<Result<(FileEntry, bool)>> = candidates
         .par_iter()
-        .map(|candidate| build_entry(candidate, prev_map.get(&candidate.relative_path).copied(), &config))
+        .map(|candidate| {
+            build_entry(
+                candidate,
+                prev_map.get(&candidate.relative_path).copied(),
+                &config,
+            )
+        })
         .collect();
 
     let mut files = Vec::with_capacity(results.len());
@@ -119,7 +127,10 @@ pub fn refresh(repo_root: &Path) -> Result<RefreshResult> {
 
     save_cache(repo_root, &payload)?;
 
-    Ok(RefreshResult { payload, cache_path: cp })
+    Ok(RefreshResult {
+        payload,
+        cache_path: cp,
+    })
 }
 
 fn build_entry(
@@ -137,51 +148,56 @@ fn build_entry(
     let size = meta.len();
 
     // Fast path: mtime + size unchanged and same mode => reuse previous entry
-    if let Some(prev) = prev {
-        if !file_changed(mtime_ms, size, prev.mtime_ms, prev.size) && prev.mode == config.mode {
-            return Ok((
-                FileEntry {
-                    path: prev.path.clone(),
-                    hash: prev.hash.clone(),
-                    mtime_ms,
-                    size,
-                    mode: prev.mode.clone(),
-                    content: prev.content.clone(),
-                    summary: prev.summary.clone(),
-                },
-                false,
-            ));
-        }
+    if let Some(prev) = prev
+        && !file_changed(mtime_ms, size, prev.mtime_ms, prev.size)
+        && prev.mode == config.mode
+    {
+        return Ok((
+            FileEntry {
+                path: prev.path.clone(),
+                hash: prev.hash.clone(),
+                mtime_ms,
+                size,
+                mode: prev.mode.clone(),
+                content: prev.content.clone(),
+                summary: prev.summary.clone(),
+            },
+            false,
+        ));
     }
 
     let raw = std::fs::read(&candidate.absolute_path)?;
     let hash = hash_bytes(&raw);
 
     // Hash path: content hash unchanged => reuse summary, update mtime
-    if let Some(prev) = prev {
-        if prev.hash == hash {
-            return Ok((
-                FileEntry {
-                    path: prev.path.clone(),
-                    hash,
-                    mtime_ms,
-                    size,
-                    mode: config.mode.clone(),
-                    content: if config.mode == "full" {
-                        String::from_utf8_lossy(&raw).into_owned().into()
-                    } else {
-                        None
-                    },
-                    summary: prev.summary.clone(),
+    if let Some(prev) = prev
+        && prev.hash == hash
+    {
+        return Ok((
+            FileEntry {
+                path: prev.path.clone(),
+                hash,
+                mtime_ms,
+                size,
+                mode: config.mode.clone(),
+                content: if config.mode == "full" {
+                    String::from_utf8_lossy(&raw).into_owned().into()
+                } else {
+                    None
                 },
-                false,
-            ));
-        }
+                summary: prev.summary.clone(),
+            },
+            false,
+        ));
     }
 
     // Full re-index
     let content_str = String::from_utf8_lossy(&raw);
-    let summary = extract_summary(&content_str, &candidate.absolute_path, config.max_file_chars);
+    let summary = extract_summary(
+        &content_str,
+        &candidate.absolute_path,
+        config.max_file_chars,
+    );
     let content = if config.mode == "full" {
         Some(content_str.into_owned())
     } else {

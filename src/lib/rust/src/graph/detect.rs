@@ -3,19 +3,21 @@ use std::path::Path;
 use std::process::Command;
 
 use anyhow::Result;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
 use super::query::impact_radius;
 use super::types::{
-    ChangeRisk, MinimalContext, RISK_PENALTY_NO_TESTS, RISK_THRESHOLD_HIGH,
-    RISK_THRESHOLD_MEDIUM, RISK_WEIGHT_CALLERS, RISK_WEIGHT_FUNCTIONS,
-    RISK_WEIGHT_IMPACTED, RISK_WEIGHT_LINES, RISK_WEIGHT_SECURITY,
+    ChangeRisk, MinimalContext, RISK_PENALTY_NO_TESTS, RISK_THRESHOLD_HIGH, RISK_THRESHOLD_MEDIUM,
+    RISK_WEIGHT_CALLERS, RISK_WEIGHT_FUNCTIONS, RISK_WEIGHT_IMPACTED, RISK_WEIGHT_LINES,
+    RISK_WEIGHT_SECURITY,
 };
 use super::{graph_path, to_posix};
 
 pub fn detect_changes(repo_root: &Path, base: &str) -> Result<Vec<ChangeRisk>> {
     let changed = git_changed_files(repo_root, base);
-    if changed.is_empty() { return Ok(Vec::new()); }
+    if changed.is_empty() {
+        return Ok(Vec::new());
+    }
 
     let line_stats = git_changed_line_stats(repo_root, base);
     let security_stats = git_changed_security_hits(repo_root, base);
@@ -61,11 +63,19 @@ pub fn detect_changes(repo_root: &Path, base: &str) -> Result<Vec<ChangeRisk>> {
             + (lines_changed as f64 * RISK_WEIGHT_LINES)
             + (changed_functions as f64 * RISK_WEIGHT_FUNCTIONS)
             + (security_hits as f64 * RISK_WEIGHT_SECURITY)
-            + if test_hits == 0 && test_symbol_links == 0 { RISK_PENALTY_NO_TESTS } else { 0.0 };
+            + if test_hits == 0 && test_symbol_links == 0 {
+                RISK_PENALTY_NO_TESTS
+            } else {
+                0.0
+            };
 
-        let risk = if risk_score >= RISK_THRESHOLD_HIGH { "high" }
-            else if risk_score >= RISK_THRESHOLD_MEDIUM { "medium" }
-            else { "low" };
+        let risk = if risk_score >= RISK_THRESHOLD_HIGH {
+            "high"
+        } else if risk_score >= RISK_THRESHOLD_MEDIUM {
+            "medium"
+        } else {
+            "low"
+        };
 
         out.push(ChangeRisk {
             file_path: file,
@@ -79,7 +89,11 @@ pub fn detect_changes(repo_root: &Path, base: &str) -> Result<Vec<ChangeRisk>> {
         });
     }
 
-    out.sort_by(|a, b| b.impacted_files.cmp(&a.impacted_files).then_with(|| a.file_path.cmp(&b.file_path)));
+    out.sort_by(|a, b| {
+        b.impacted_files
+            .cmp(&a.impacted_files)
+            .then_with(|| a.file_path.cmp(&b.file_path))
+    });
     Ok(out)
 }
 
@@ -88,11 +102,17 @@ pub fn minimal_context(repo_root: &Path, base: &str) -> Result<MinimalContext> {
     let changed_count = changes.len() as i64;
     let impacted_total: i64 = changes.iter().map(|c| c.impacted_files).sum();
 
-    let risk = if changes.iter().any(|c| c.risk == "high") { "high" }
-        else if changes.iter().any(|c| c.risk == "medium") { "medium" }
-        else { "low" };
+    let risk = if changes.iter().any(|c| c.risk == "high") {
+        "high"
+    } else if changes.iter().any(|c| c.risk == "medium") {
+        "medium"
+    } else {
+        "low"
+    };
 
-    let mut top_files: Vec<String> = changes.iter().take(5)
+    let mut top_files: Vec<String> = changes
+        .iter()
+        .take(5)
         .map(|c| format!("{} ({})", c.file_path, c.risk))
         .collect();
 
@@ -117,21 +137,41 @@ pub fn minimal_context(repo_root: &Path, base: &str) -> Result<MinimalContext> {
 }
 
 fn git_changed_files(repo_root: &Path, base: &str) -> Vec<String> {
-    let out = Command::new("git").arg("diff").arg("--name-only").arg(base)
-        .current_dir(repo_root).output();
-    let bytes = match out { Ok(o) if o.status.success() => o.stdout, _ => return Vec::new() };
-    String::from_utf8_lossy(&bytes).lines()
-        .map(str::trim).filter(|s| !s.is_empty()).map(to_posix).collect()
+    let out = Command::new("git")
+        .arg("diff")
+        .arg("--name-only")
+        .arg(base)
+        .current_dir(repo_root)
+        .output();
+    let bytes = match out {
+        Ok(o) if o.status.success() => o.stdout,
+        _ => return Vec::new(),
+    };
+    String::from_utf8_lossy(&bytes)
+        .lines()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(to_posix)
+        .collect()
 }
 
 fn git_changed_line_stats(repo_root: &Path, base: &str) -> HashMap<String, i64> {
-    let out = Command::new("git").arg("diff").arg("--numstat").arg(base)
-        .current_dir(repo_root).output();
-    let bytes = match out { Ok(o) if o.status.success() => o.stdout, _ => return HashMap::new() };
+    let out = Command::new("git")
+        .arg("diff")
+        .arg("--numstat")
+        .arg(base)
+        .current_dir(repo_root)
+        .output();
+    let bytes = match out {
+        Ok(o) if o.status.success() => o.stdout,
+        _ => return HashMap::new(),
+    };
     let mut stats = HashMap::new();
     for line in String::from_utf8_lossy(&bytes).lines() {
         let parts: Vec<&str> = line.split('\t').collect();
-        if parts.len() != 3 { continue; }
+        if parts.len() != 3 {
+            continue;
+        }
         let added = parts[0].parse::<i64>().unwrap_or(0);
         let deleted = parts[1].parse::<i64>().unwrap_or(0);
         stats.insert(to_posix(parts[2].trim()), added + deleted);
@@ -140,31 +180,58 @@ fn git_changed_line_stats(repo_root: &Path, base: &str) -> HashMap<String, i64> 
 }
 
 fn git_changed_security_hits(repo_root: &Path, base: &str) -> HashMap<String, i64> {
-    let out = Command::new("git").arg("diff").arg("--unified=0").arg(base)
-        .current_dir(repo_root).output();
-    let bytes = match out { Ok(o) if o.status.success() => o.stdout, _ => return HashMap::new() };
-    let keywords = ["auth", "token", "password", "secret", "sql", "permission", "credential", "jwt"];
+    let out = Command::new("git")
+        .arg("diff")
+        .arg("--unified=0")
+        .arg(base)
+        .current_dir(repo_root)
+        .output();
+    let bytes = match out {
+        Ok(o) if o.status.success() => o.stdout,
+        _ => return HashMap::new(),
+    };
+    let keywords = [
+        "auth",
+        "token",
+        "password",
+        "secret",
+        "sql",
+        "permission",
+        "credential",
+        "jwt",
+    ];
     let mut file = String::new();
     let mut hits: HashMap<String, i64> = HashMap::new();
     for line in String::from_utf8_lossy(&bytes).lines() {
-        if let Some(rest) = line.strip_prefix("+++ b/") { file = to_posix(rest.trim()); continue; }
-        if file.is_empty() { continue; }
-        if (line.starts_with('+') || line.starts_with('-')) && !line.starts_with("+++") && !line.starts_with("---") {
+        if let Some(rest) = line.strip_prefix("+++ b/") {
+            file = to_posix(rest.trim());
+            continue;
+        }
+        if file.is_empty() {
+            continue;
+        }
+        if (line.starts_with('+') || line.starts_with('-'))
+            && !line.starts_with("+++")
+            && !line.starts_with("---")
+        {
             let lower = line.to_lowercase();
             let count = keywords.iter().filter(|k| lower.contains(*k)).count() as i64;
-            if count > 0 { *hits.entry(file.clone()).or_insert(0) += count; }
+            if count > 0 {
+                *hits.entry(file.clone()).or_insert(0) += count;
+            }
         }
     }
     hits
 }
 
 fn count_symbol_linked_tests(conn: &Connection, file_path: &str) -> Result<i64> {
-    let mut names_stmt = conn.prepare(
-        "SELECT name FROM nodes WHERE kind='function' AND file_path=?1 LIMIT 100",
-    )?;
+    let mut names_stmt =
+        conn.prepare("SELECT name FROM nodes WHERE kind='function' AND file_path=?1 LIMIT 100")?;
     let mut name_rows = names_stmt.query(params![file_path])?;
     let mut names = Vec::new();
-    while let Some(row) = name_rows.next()? { names.push(row.get::<_, String>(0)?); }
+    while let Some(row) = name_rows.next()? {
+        names.push(row.get::<_, String>(0)?);
+    }
 
     let mut total = 0i64;
     for name in names {
@@ -179,7 +246,12 @@ fn count_symbol_linked_tests(conn: &Connection, file_path: &str) -> Result<i64> 
 }
 
 fn stem_for_test_matching(file_path: &str) -> String {
-    let name = file_path.split('/').last().unwrap_or(file_path)
-        .split('.').next().unwrap_or(file_path);
-    name.replace('-', "").replace('_', "")
+    let name = file_path
+        .split('/')
+        .next_back()
+        .unwrap_or(file_path)
+        .split('.')
+        .next()
+        .unwrap_or(file_path);
+    name.replace(['-', '_'], "")
 }

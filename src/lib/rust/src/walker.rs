@@ -1,6 +1,6 @@
-use std::path::{Path, PathBuf};
 use anyhow::Result;
 use ignore::WalkBuilder;
+use std::path::{Path, PathBuf};
 
 use crate::config::CacheConfig;
 

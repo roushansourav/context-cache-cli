@@ -2,12 +2,12 @@ use std::collections::{HashSet, VecDeque};
 use std::path::Path;
 
 use anyhow::Result;
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 
-use crate::cache;
 use super::schema::init_schema;
 use super::types::{LargeSymbolRow, QueryRow, ReviewContext};
 use super::{graph_path, to_posix};
+use crate::cache;
 
 pub fn query(repo_root: &Path, pattern: &str, target: &str, limit: i64) -> Result<Vec<QueryRow>> {
     let db_path = graph_path(repo_root);
@@ -15,13 +15,21 @@ pub fn query(repo_root: &Path, pattern: &str, target: &str, limit: i64) -> Resul
     init_schema(&conn)?;
 
     let norm = normalize_pattern(pattern);
-    let lim = limit.max(1).min(500);
+    let lim = limit.clamp(1, 500);
 
     let sql = match norm {
-        "imports_of" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='imports_from' AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3",
-        "importers_of" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='imports_from' AND (e.target=?1 OR e.target LIKE ?2) LIMIT ?3",
-        "callees_of" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='calls' AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3",
-        "callers_of" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='calls' AND (e.target=?1 OR e.target LIKE ?2) LIMIT ?3",
+        "imports_of" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='imports_from' AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3"
+        }
+        "importers_of" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='imports_from' AND (e.target=?1 OR e.target LIKE ?2) LIMIT ?3"
+        }
+        "callees_of" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='calls' AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3"
+        }
+        "callers_of" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='calls' AND (e.target=?1 OR e.target LIKE ?2) LIMIT ?3"
+        }
         "tests_for" => {
             "SELECT n.qualified_name AS source, ?1 AS target, 'tests_for' AS kind, n.file_path
              FROM nodes n WHERE n.kind='function'
@@ -29,11 +37,21 @@ pub fn query(repo_root: &Path, pattern: &str, target: &str, limit: i64) -> Resul
                AND n.name LIKE ?2
              LIMIT ?3"
         }
-        "container_of" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='contains' AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3",
-        "depends_on" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE (e.kind='imports_from' OR e.kind='calls') AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3",
-        "inheritance_of" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='inherits' AND (e.source=?1 OR e.target=?1 OR e.source LIKE ?2 OR e.target LIKE ?2) LIMIT ?3",
-        "implemented_by" => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='implements' AND (e.target=?1 OR e.target LIKE ?2) LIMIT ?3",
-        _ => "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE (e.source=?1 OR e.target=?1 OR e.source LIKE ?2 OR e.target LIKE ?2) LIMIT ?3",
+        "container_of" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='contains' AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3"
+        }
+        "depends_on" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE (e.kind='imports_from' OR e.kind='calls') AND (e.source=?1 OR e.source LIKE ?2) LIMIT ?3"
+        }
+        "inheritance_of" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='inherits' AND (e.source=?1 OR e.target=?1 OR e.source LIKE ?2 OR e.target LIKE ?2) LIMIT ?3"
+        }
+        "implemented_by" => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE e.kind='implements' AND (e.target=?1 OR e.target LIKE ?2) LIMIT ?3"
+        }
+        _ => {
+            "SELECT e.source, e.target, e.kind, e.file_path FROM edges e WHERE (e.source=?1 OR e.target=?1 OR e.source LIKE ?2 OR e.target LIKE ?2) LIMIT ?3"
+        }
     };
 
     let target_q = to_target_qname(target);
@@ -53,7 +71,11 @@ pub fn query(repo_root: &Path, pattern: &str, target: &str, limit: i64) -> Resul
     Ok(out)
 }
 
-pub fn impact_radius(repo_root: &Path, changed_files: &[String], max_depth: i64) -> Result<Vec<String>> {
+pub fn impact_radius(
+    repo_root: &Path,
+    changed_files: &[String],
+    max_depth: i64,
+) -> Result<Vec<String>> {
     let db_path = graph_path(repo_root);
     let conn = Connection::open(&db_path)?;
     init_schema(&conn)?;
@@ -67,10 +89,12 @@ pub fn impact_radius(repo_root: &Path, changed_files: &[String], max_depth: i64)
         queue.push_back((q, 0));
     }
 
-    let depth_limit = max_depth.max(1).min(10);
+    let depth_limit = max_depth.clamp(1, 10);
 
     while let Some((node, depth)) = queue.pop_front() {
-        if depth >= depth_limit { continue; }
+        if depth >= depth_limit {
+            continue;
+        }
 
         let mut stmt = conn.prepare(
             "SELECT source, target FROM edges WHERE (kind='imports_from' OR kind='calls') AND (source=?1 OR target=?1)",
@@ -101,12 +125,18 @@ pub fn impact_radius(repo_root: &Path, changed_files: &[String], max_depth: i64)
     Ok(out)
 }
 
-pub fn find_large_symbols(repo_root: &Path, min_lines: i64, kind: Option<&str>, file_path_pattern: Option<&str>, limit: i64) -> Result<Vec<LargeSymbolRow>> {
+pub fn find_large_symbols(
+    repo_root: &Path,
+    min_lines: i64,
+    kind: Option<&str>,
+    file_path_pattern: Option<&str>,
+    limit: i64,
+) -> Result<Vec<LargeSymbolRow>> {
     let db_path = graph_path(repo_root);
     let conn = Connection::open(&db_path)?;
     init_schema(&conn)?;
 
-    let lim = limit.max(1).min(500);
+    let lim = limit.clamp(1, 500);
     let min_l = min_lines.max(1);
     let mut stmt = conn.prepare(
         "SELECT kind, qualified_name, file_path, line_start, line_end,
@@ -136,7 +166,14 @@ pub fn find_large_symbols(repo_root: &Path, min_lines: i64, kind: Option<&str>, 
     Ok(out)
 }
 
-pub fn review_context(repo_root: &Path, changed_files: Option<&[String]>, max_depth: i64, include_source: bool, max_lines_per_file: i64, base: &str) -> Result<ReviewContext> {
+pub fn review_context(
+    repo_root: &Path,
+    changed_files: Option<&[String]>,
+    max_depth: i64,
+    include_source: bool,
+    max_lines_per_file: i64,
+    base: &str,
+) -> Result<ReviewContext> {
     let changed = match changed_files {
         Some(files) if !files.is_empty() => files.to_vec(),
         _ => git_changed_files(repo_root, base),
@@ -205,7 +242,9 @@ fn normalize_pattern(pattern: &str) -> &'static str {
 }
 
 fn to_target_qname(target: &str) -> String {
-    if target.contains("::") { return target.to_string(); }
+    if target.contains("::") {
+        return target.to_string();
+    }
     format!("%::{}", target)
 }
 

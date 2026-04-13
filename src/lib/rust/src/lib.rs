@@ -2,8 +2,8 @@
 
 mod cache;
 mod config;
-mod graph;
-mod graph_napi;
+pub mod graph;
+pub mod graph_napi;
 mod hasher;
 mod summarize;
 mod walker;
@@ -221,8 +221,7 @@ pub struct JsCrossRepoSearchResult {
 #[napi]
 pub fn refresh(repo_root: String) -> napi::Result<JsRefreshResult> {
     let path = PathBuf::from(&repo_root);
-    let result = cache::refresh(&path)
-        .map_err(|e| napi::Error::from_reason(e.to_string()))?;
+    let result = cache::refresh(&path).map_err(|e| napi::Error::from_reason(e.to_string()))?;
 
     Ok(map_result(result))
 }
@@ -256,15 +255,19 @@ pub fn status(repo_root: String) -> JsStatusResult {
 
 fn map_result(r: cache::RefreshResult) -> JsRefreshResult {
     let p = r.payload;
-    let files = p.files.into_iter().map(|f| JsFileEntry {
-        path: f.path,
-        hash: f.hash,
-        mtime_ms: f.mtime_ms,
-        size: f.size as i64,
-        mode: f.mode,
-        content: f.content,
-        summary: f.summary,
-    }).collect();
+    let files = p
+        .files
+        .into_iter()
+        .map(|f| JsFileEntry {
+            path: f.path,
+            hash: f.hash,
+            mtime_ms: f.mtime_ms,
+            size: f.size as i64,
+            mode: f.mode,
+            content: f.content,
+            summary: f.summary,
+        })
+        .collect();
 
     JsRefreshResult {
         cache_path: r.cache_path.to_string_lossy().into_owned(),

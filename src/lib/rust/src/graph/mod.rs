@@ -11,12 +11,17 @@ pub mod types;
 pub mod wiki;
 
 pub use build::{build_graph, build_or_update_graph, status};
-pub use community::{affected_flows, architecture_overview, get_community, get_flow, list_communities, list_flows, run_postprocess};
+pub use community::{
+    affected_flows, architecture_overview, get_community, get_flow, list_communities, list_flows,
+    run_postprocess,
+};
 pub use detect::{detect_changes, minimal_context};
 pub use embed::{embed_graph, semantic_search};
 pub use query::{find_large_symbols, impact_radius, query, review_context};
 pub use refactor::{apply_refactor, refactor_preview};
-pub use registry::{cross_repo_impact, cross_repo_search, list_repos, register_repo, unregister_repo};
+pub use registry::{
+    cross_repo_impact, cross_repo_search, list_repos, register_repo, unregister_repo,
+};
 // Re-export all public domain types so callers can write `graph::SemanticRow` etc.
 #[allow(unused_imports)]
 pub use types::{

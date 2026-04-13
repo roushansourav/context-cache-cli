@@ -1,16 +1,16 @@
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use chrono::Utc;
-use rusqlite::{params, Connection, OptionalExtension};
+use rusqlite::{Connection, OptionalExtension, params};
 
-use crate::cache;
-use super::parser::{parse_file, SymbolKind};
 use super::community::run_postprocess;
+use super::parser::{SymbolKind, parse_file};
 use super::schema::init_schema;
 use super::types::GraphStatus;
 use super::{graph_path, to_posix};
+use crate::cache;
 
 pub fn build_graph(repo_root: &Path) -> Result<String> {
     build_or_update_graph(repo_root, true)
@@ -93,7 +93,18 @@ pub fn build_or_update_graph(repo_root: &Path, full_rebuild: bool) -> Result<Str
             .as_ref()
             .map(|c| c.lines().count() as i64)
             .unwrap_or(0);
-        insert_node(&tx, "file", &file_path, &qname, &file_path, 0, line_end, Some(file_lang))?;
+        insert_node(
+            &tx,
+            &NodeInsert {
+                kind: "file",
+                name: &file_path,
+                qname: &qname,
+                file_path: &file_path,
+                line_start: 0,
+                line_end,
+                language: Some(file_lang),
+            },
+        )?;
 
         let content = match &file.content {
             Some(c) => c,
@@ -109,20 +120,35 @@ pub fn build_or_update_graph(repo_root: &Path, full_rebuild: bool) -> Result<Str
             };
             insert_node(
                 &tx,
-                node_kind,
-                &sym.name,
+                &NodeInsert {
+                    kind: node_kind,
+                    name: &sym.name,
+                    qname: &sym.qualified_name,
+                    file_path: &file_path,
+                    line_start: sym.line_start,
+                    line_end: sym.line_end,
+                    language: Some(&sym.language),
+                },
+            )?;
+            insert_edge(
+                &tx,
+                "contains",
+                &sym.container,
                 &sym.qualified_name,
                 &file_path,
-                sym.line_start,
-                sym.line_end,
-                Some(&sym.language),
             )?;
-            insert_edge(&tx, "contains", &sym.container, &sym.qualified_name, &file_path)?;
-            global_symbols.entry(sym.name.clone()).or_insert_with(|| sym.qualified_name.clone());
+            global_symbols
+                .entry(sym.name.clone())
+                .or_insert_with(|| sym.qualified_name.clone());
         }
 
         for rel in parsed.relations {
-            pending_relations.push((rel.kind, rel.source_qname, rel.target_name, file_path.clone()));
+            pending_relations.push((
+                rel.kind,
+                rel.source_qname,
+                rel.target_name,
+                file_path.clone(),
+            ));
         }
 
         for specifier in parsed.imports {
@@ -187,7 +213,11 @@ pub fn status(repo_root: &Path) -> Result<GraphStatus> {
     let node_count: i64 = conn.query_row("SELECT COUNT(*) FROM nodes", [], |r| r.get(0))?;
     let edge_count: i64 = conn.query_row("SELECT COUNT(*) FROM edges", [], |r| r.get(0))?;
     let updated_at: Option<String> = conn
-        .query_row("SELECT value FROM metadata WHERE key='updated_at'", [], |r| r.get(0))
+        .query_row(
+            "SELECT value FROM metadata WHERE key='updated_at'",
+            [],
+            |r| r.get(0),
+        )
         .optional()?;
 
     Ok(GraphStatus {
@@ -199,24 +229,39 @@ pub fn status(repo_root: &Path) -> Result<GraphStatus> {
     })
 }
 
-fn insert_node(
-    conn: &Connection,
-    kind: &str,
-    name: &str,
-    qname: &str,
-    file_path: &str,
+struct NodeInsert<'a> {
+    kind: &'a str,
+    name: &'a str,
+    qname: &'a str,
+    file_path: &'a str,
     line_start: i64,
     line_end: i64,
-    language: Option<&str>,
-) -> Result<()> {
+    language: Option<&'a str>,
+}
+
+fn insert_node(conn: &Connection, row: &NodeInsert<'_>) -> Result<()> {
     conn.execute(
         "INSERT OR IGNORE INTO nodes(kind, name, qualified_name, file_path, line_start, line_end, language) VALUES(?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![kind, name, qname, file_path, line_start, line_end, language],
+        params![
+            row.kind,
+            row.name,
+            row.qname,
+            row.file_path,
+            row.line_start,
+            row.line_end,
+            row.language
+        ],
     )?;
     Ok(())
 }
 
-fn insert_edge(conn: &Connection, kind: &str, source: &str, target: &str, file_path: &str) -> Result<()> {
+fn insert_edge(
+    conn: &Connection,
+    kind: &str,
+    source: &str,
+    target: &str,
+    file_path: &str,
+) -> Result<()> {
     conn.execute(
         "INSERT INTO edges(kind, source, target, file_path) VALUES(?1, ?2, ?3, ?4)",
         params![kind, source, target, file_path],
@@ -224,7 +269,11 @@ fn insert_edge(conn: &Connection, kind: &str, source: &str, target: &str, file_p
     Ok(())
 }
 
-fn resolve_import_target(from_file: &str, specifier: &str, known_files: &HashSet<String>) -> Option<String> {
+fn resolve_import_target(
+    from_file: &str,
+    specifier: &str,
+    known_files: &HashSet<String>,
+) -> Option<String> {
     if specifier.starts_with('.') {
         return resolve_relative_import(from_file, specifier, known_files);
     }
@@ -239,22 +288,45 @@ fn resolve_import_target(from_file: &str, specifier: &str, known_files: &HashSet
     }
 }
 
-fn resolve_relative_import(from_file: &str, specifier: &str, known_files: &HashSet<String>) -> Option<String> {
+fn resolve_relative_import(
+    from_file: &str,
+    specifier: &str,
+    known_files: &HashSet<String>,
+) -> Option<String> {
     let mut parts: Vec<&str> = from_file.split('/').collect();
     parts.pop();
     for part in specifier.split('/') {
-        if part.is_empty() || part == "." { continue; }
-        if part == ".." { let _ = parts.pop(); } else { parts.push(part); }
+        if part.is_empty() || part == "." {
+            continue;
+        }
+        if part == ".." {
+            let _ = parts.pop();
+        } else {
+            parts.push(part);
+        }
     }
     let base = parts.join("/");
     let candidates = [
-        base.clone(), format!("{}.ts", base), format!("{}.tsx", base),
-        format!("{}.js", base), format!("{}.jsx", base), format!("{}.mjs", base),
-        format!("{}.cjs", base), format!("{}.py", base), format!("{}.rs", base),
-        format!("{}.go", base), format!("{}.java", base), format!("{}.c", base),
-        format!("{}.h", base), format!("{}.cpp", base), format!("{}.hpp", base),
-        format!("{}/index.ts", base), format!("{}/index.tsx", base),
-        format!("{}/index.js", base), format!("{}/index.py", base), format!("{}/index.rs", base),
+        base.clone(),
+        format!("{}.ts", base),
+        format!("{}.tsx", base),
+        format!("{}.js", base),
+        format!("{}.jsx", base),
+        format!("{}.mjs", base),
+        format!("{}.cjs", base),
+        format!("{}.py", base),
+        format!("{}.rs", base),
+        format!("{}.go", base),
+        format!("{}.java", base),
+        format!("{}.c", base),
+        format!("{}.h", base),
+        format!("{}.cpp", base),
+        format!("{}.hpp", base),
+        format!("{}/index.ts", base),
+        format!("{}/index.tsx", base),
+        format!("{}/index.js", base),
+        format!("{}/index.py", base),
+        format!("{}/index.rs", base),
     ];
     candidates.into_iter().find(|c| known_files.contains(c))
 }
@@ -279,9 +351,12 @@ fn resolve_rust_module(specifier: &str, known_files: &HashSet<String>) -> Option
 
 fn resolve_java_module(specifier: &str, known_files: &HashSet<String>) -> Option<String> {
     let base = specifier.replace('.', "/");
-    [format!("{}.java", base), format!("src/main/java/{}.java", base)]
-        .into_iter()
-        .find(|c| known_files.contains(c))
+    [
+        format!("{}.java", base),
+        format!("src/main/java/{}.java", base),
+    ]
+    .into_iter()
+    .find(|c| known_files.contains(c))
 }
 
 fn resolve_go_module(specifier: &str, known_files: &HashSet<String>) -> Option<String> {
@@ -308,11 +383,19 @@ fn detect_lang_from_path(path: &str) -> &'static str {
         "typescript"
     } else if p.ends_with(".tsx") {
         "tsx"
-    } else if p.ends_with(".js") || p.ends_with(".jsx") || p.ends_with(".mjs") || p.ends_with(".cjs") {
+    } else if p.ends_with(".js")
+        || p.ends_with(".jsx")
+        || p.ends_with(".mjs")
+        || p.ends_with(".cjs")
+    {
         "javascript"
     } else if p.ends_with(".c") || p.ends_with(".h") {
         "c"
-    } else if p.ends_with(".cpp") || p.ends_with(".cc") || p.ends_with(".cxx") || p.ends_with(".hpp") {
+    } else if p.ends_with(".cpp")
+        || p.ends_with(".cc")
+        || p.ends_with(".cxx")
+        || p.ends_with(".hpp")
+    {
         "cpp"
     } else if p.ends_with(".cs") {
         "csharp"
@@ -328,7 +411,18 @@ fn detect_lang_from_path(path: &str) -> &'static str {
 }
 
 fn is_call_noise(name: &str) -> bool {
-    matches!(name, "if" | "for" | "while" | "switch" | "catch" | "return" | "new" | "typeof" | "await" | "console")
+    matches!(
+        name,
+        "if" | "for"
+            | "while"
+            | "switch"
+            | "catch"
+            | "return"
+            | "new"
+            | "typeof"
+            | "await"
+            | "console"
+    )
 }
 
 fn load_indexed_hashes(conn: &Connection) -> Result<HashMap<String, String>> {
@@ -342,7 +436,8 @@ fn load_indexed_hashes(conn: &Connection) -> Result<HashMap<String, String>> {
 }
 
 fn load_existing_symbols(conn: &Connection, out: &mut HashMap<String, String>) -> Result<()> {
-    let mut stmt = conn.prepare("SELECT name, qualified_name FROM nodes WHERE kind IN ('function', 'class')")?;
+    let mut stmt =
+        conn.prepare("SELECT name, qualified_name FROM nodes WHERE kind IN ('function', 'class')")?;
     let mut rows = stmt.query([])?;
     while let Some(row) = rows.next()? {
         let name: String = row.get(0)?;
@@ -354,7 +449,10 @@ fn load_existing_symbols(conn: &Connection, out: &mut HashMap<String, String>) -
 
 fn delete_file_subgraph(conn: &Connection, file_path: &str) -> Result<()> {
     let file_q = format!("file::{}", file_path);
-    conn.execute("DELETE FROM edges WHERE file_path=?1 OR source=?2 OR target=?2", params![file_path, file_q])?;
+    conn.execute(
+        "DELETE FROM edges WHERE file_path=?1 OR source=?2 OR target=?2",
+        params![file_path, file_q],
+    )?;
     conn.execute("DELETE FROM nodes WHERE file_path=?1", params![file_path])?;
     Ok(())
 }

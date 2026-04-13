@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::language::{detect_language, Lang};
+use super::language::{Lang, detect_language};
 
 pub fn normalize_source(file_path: &str, content: &str) -> (String, Option<Lang>) {
     let lower = file_path.to_ascii_lowercase();

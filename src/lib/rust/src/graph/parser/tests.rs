@@ -6,7 +6,10 @@ fn detects_extended_languages() {
     assert_eq!(detect_language("a.kt").map(lang_to_name), Some("kotlin"));
     assert_eq!(detect_language("b.scala").map(lang_to_name), Some("scala"));
     assert_eq!(detect_language("c.vue").map(lang_to_name), Some("vue"));
-    assert_eq!(detect_language("d.ipynb").map(lang_to_name), Some("notebook"));
+    assert_eq!(
+        detect_language("d.ipynb").map(lang_to_name),
+        Some("notebook")
+    );
 }
 
 #[test]

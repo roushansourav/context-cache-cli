@@ -4,7 +4,7 @@ mod traversal;
 
 use tree_sitter::Parser;
 
-use super::language::{language_for, Lang};
+use super::language::{Lang, language_for};
 use super::types::ParsedFile;
 
 pub fn parse_with_tree_sitter(file_path: &str, content: &str, lang: Lang) -> Option<ParsedFile> {
@@ -16,5 +16,10 @@ pub fn parse_with_tree_sitter(file_path: &str, content: &str, lang: Lang) -> Opt
     }
 
     let tree = parser.parse(content, None)?;
-    Some(traversal::walk_tree(tree.root_node(), content.as_bytes(), file_path, lang))
+    Some(traversal::walk_tree(
+        tree.root_node(),
+        content.as_bytes(),
+        file_path,
+        lang,
+    ))
 }

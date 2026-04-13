@@ -3,14 +3,21 @@ use tree_sitter::Node;
 use super::super::language::Lang;
 use super::super::utils::{extract_quoted, text_of};
 
-pub fn extract_symbol_name(node: Node, source: &[u8], lang: Lang, is_class: bool) -> Option<String> {
-    if matches!(lang, Lang::Rust) && node.kind() == "impl_item"
+pub fn extract_symbol_name(
+    node: Node,
+    source: &[u8],
+    lang: Lang,
+    is_class: bool,
+) -> Option<String> {
+    if matches!(lang, Lang::Rust)
+        && node.kind() == "impl_item"
         && let Some(ty) = node.child_by_field_name("type")
     {
         return text_of(ty, source);
     }
 
-    if matches!(lang, Lang::Go) && node.kind() == "type_spec"
+    if matches!(lang, Lang::Go)
+        && node.kind() == "type_spec"
         && let Some(n) = node.child_by_field_name("name")
     {
         return text_of(n, source);
@@ -58,31 +65,36 @@ pub fn extract_function_name(node: Node, source: &[u8], lang: Lang) -> Option<(S
         return Some((name, node.start_position().row as i64 + 1));
     }
 
-    if matches!(lang, Lang::Rust) && kind == "function_item"
+    if matches!(lang, Lang::Rust)
+        && kind == "function_item"
         && let Some(name) = extract_symbol_name(node, source, lang, false)
     {
         return Some((name, node.start_position().row as i64 + 1));
     }
 
-    if matches!(lang, Lang::Ruby) && kind == "method"
+    if matches!(lang, Lang::Ruby)
+        && kind == "method"
         && let Some(name) = extract_symbol_name(node, source, lang, false)
     {
         return Some((name, node.start_position().row as i64 + 1));
     }
 
-    if matches!(lang, Lang::Php) && (kind == "function_definition" || kind == "method_declaration")
+    if matches!(lang, Lang::Php)
+        && (kind == "function_definition" || kind == "method_declaration")
         && let Some(name) = extract_symbol_name(node, source, lang, false)
     {
         return Some((name, node.start_position().row as i64 + 1));
     }
 
-    if matches!(lang, Lang::CSharp) && (kind == "method_declaration" || kind == "constructor_declaration")
+    if matches!(lang, Lang::CSharp)
+        && (kind == "method_declaration" || kind == "constructor_declaration")
         && let Some(name) = extract_symbol_name(node, source, lang, false)
     {
         return Some((name, node.start_position().row as i64 + 1));
     }
 
-    if matches!(lang, Lang::Lua) && kind == "function_declaration"
+    if matches!(lang, Lang::Lua)
+        && kind == "function_declaration"
         && let Some(name) = extract_symbol_name(node, source, lang, false)
     {
         return Some((name, node.start_position().row as i64 + 1));
@@ -90,12 +102,15 @@ pub fn extract_function_name(node: Node, source: &[u8], lang: Lang) -> Option<(S
 
     if matches!(lang, Lang::JavaScript | Lang::TypeScript | Lang::Tsx)
         && kind == "variable_declarator"
-        && let (Some(name_node), Some(value_node)) =
-            (node.child_by_field_name("name"), node.child_by_field_name("value"))
+        && let (Some(name_node), Some(value_node)) = (
+            node.child_by_field_name("name"),
+            node.child_by_field_name("value"),
+        )
         && matches!(
             value_node.kind(),
             "arrow_function" | "function" | "function_expression"
-        ) && let Some(name) = text_of(name_node, source)
+        )
+        && let Some(name) = text_of(name_node, source)
     {
         return Some((name, node.start_position().row as i64 + 1));
     }
@@ -156,7 +171,12 @@ pub fn extract_import_targets(node: Node, source: &[u8], lang: Lang) -> Vec<Stri
                 if matches!(child.kind(), "system_lib_string" | "string_literal")
                     && let Some(v) = text_of(child, source)
                 {
-                    out.push(v.trim_matches('<').trim_matches('>').trim_matches('"').to_string());
+                    out.push(
+                        v.trim_matches('<')
+                            .trim_matches('>')
+                            .trim_matches('"')
+                            .to_string(),
+                    );
                 }
             }
         }

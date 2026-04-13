@@ -1,13 +1,13 @@
 use std::path::Path;
 
-use anyhow::{anyhow, Result};
-use rusqlite::{params, Connection};
+use anyhow::{Result, anyhow};
+use rusqlite::{Connection, params};
 
-use crate::hasher::hash_bytes;
 use super::community::list_communities;
 use super::schema::init_schema;
 use super::types::WikiResult;
 use super::{graph_path, store_dir};
+use crate::hasher::hash_bytes;
 
 pub fn generate_wiki(repo_root: &Path, force: bool) -> Result<WikiResult> {
     let db_path = graph_path(repo_root);
@@ -24,7 +24,9 @@ pub fn generate_wiki(repo_root: &Path, force: bool) -> Result<WikiResult> {
     for c in communities {
         let name = sanitize_page_name(&c.name);
         let path = wiki_root.join(format!("{}.md", name));
-        if path.exists() && !force { continue; }
+        if path.exists() && !force {
+            continue;
+        }
 
         let prefix = format!("{}%", c.name);
         let mut stmt = conn.prepare(
@@ -41,8 +43,15 @@ pub fn generate_wiki(repo_root: &Path, force: bool) -> Result<WikiResult> {
 
         let body = format!(
             "# {}\n\n- Files: {}\n- Nodes: {}\n- Coupling: {}\n\n## Top Files\n{}\n",
-            c.name, c.file_count, c.node_count, c.coupling,
-            if top_files.is_empty() { "- (none)".to_string() } else { top_files.join("\n") },
+            c.name,
+            c.file_count,
+            c.node_count,
+            c.coupling,
+            if top_files.is_empty() {
+                "- (none)".to_string()
+            } else {
+                top_files.join("\n")
+            },
         );
 
         std::fs::write(path, body)?;
@@ -64,8 +73,15 @@ pub fn get_wiki_page(repo_root: &Path, page_name: &str) -> Result<String> {
 }
 
 fn sanitize_page_name(input: &str) -> String {
-    input.chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '-' })
+    input
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '-'
+            }
+        })
         .collect::<String>()
         .trim_matches('-')
         .to_string()

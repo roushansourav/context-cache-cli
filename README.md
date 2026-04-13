@@ -95,12 +95,12 @@ How it works:
 
 - Root package: `context-cache`
 - Platform packages (optional dependencies):
-	- `context-cache-darwin-arm64`
-	- `context-cache-darwin-x64`
-	- `context-cache-linux-arm64-gnu`
-	- `context-cache-linux-x64-gnu`
-	- `context-cache-win32-arm64-msvc`
-	- `context-cache-win32-x64-msvc`
+  - `context-cache-darwin-arm64`
+  - `context-cache-darwin-x64`
+  - `context-cache-linux-arm64-gnu`
+  - `context-cache-linux-x64-gnu`
+  - `context-cache-win32-arm64-msvc`
+  - `context-cache-win32-x64-msvc`
 
 The runtime loader first attempts the matching prebuilt package for the current OS/arch, then falls back to local `binding.node` for developer builds.
 
@@ -483,3 +483,49 @@ context-cache parity
 ```bash
 context-cache <command> --help
 ```
+
+## Engineering Guardrails
+
+This repository uses local and CI guardrails aligned with common industry practice.
+
+### Lint, Format, Typecheck
+
+```bash
+npm run format:check
+npm run lint
+npm run typecheck
+npm run rust:lint
+```
+
+Lint stack:
+
+- ESLint 9 flat config (`eslint.config.cjs`)
+- TypeScript latest stable
+- Rust: `cargo fmt --check` + `cargo clippy -D warnings`
+
+### Pre-commit Hooks
+
+- Husky + lint-staged run automatically on `git commit`.
+- Staged TS/JS files are auto-fixed with ESLint and Prettier.
+- Staged JSON/Markdown/YAML files are formatted with Prettier.
+- Staged Rust files are formatted with `cargo fmt`.
+- Commit messages are validated with commitlint (Conventional Commits).
+
+If hooks are missing locally:
+
+```bash
+npm run prepare
+```
+
+### PR Guardrails (CI)
+
+Pull requests must pass:
+
+1. Semantic PR title check.
+2. Format check.
+3. Lint.
+4. Typecheck.
+5. Tests.
+6. Production dependency audit (`npm audit --omit=dev --audit-level=high`).
+
+Workflow: `.github/workflows/pr-guardrails.yml`
