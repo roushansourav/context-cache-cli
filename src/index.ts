@@ -1,5 +1,5 @@
-import { join } from 'node:path';
 import { createRequire } from 'node:module';
+import { join } from 'node:path';
 
 const localRequire = createRequire(__filename);
 
@@ -23,9 +23,7 @@ function loadNativeBinding(): NativeBinding {
   for (const p of candidates) {
     try {
       return localRequire(p) as NativeBinding;
-    } catch {
-      continue;
-    }
+    } catch {}
   }
 
   throw new Error(

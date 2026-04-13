@@ -499,15 +499,14 @@ npm run rust:lint
 
 Lint stack:
 
-- ESLint 9 flat config (`eslint.config.cjs`)
+- Biome (`biome.json`) for JS/TS/JSON lint + format
 - TypeScript latest stable
 - Rust: `cargo fmt --check` + `cargo clippy -D warnings`
 
 ### Pre-commit Hooks
 
 - Husky + lint-staged run automatically on `git commit`.
-- Staged TS/JS files are auto-fixed with ESLint and Prettier.
-- Staged JSON/Markdown/YAML files are formatted with Prettier.
+- Staged TS/JS/JSON files are auto-fixed with Biome.
 - Staged Rust files are formatted with `cargo fmt`.
 - Commit messages are validated with commitlint (Conventional Commits).
 

@@ -18,10 +18,10 @@
     "build:native": "napi build --platform --release --manifest-path src/lib/rust/Cargo.toml --output-dir .",
     "build:ts": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "lint": "eslint . --max-warnings 0",
-    "lint:fix": "npm run lint -- --fix",
-    "format:check": "prettier --check .",
-    "format:write": "prettier --write .",
+    "lint": "biome lint . --error-on-warnings",
+    "lint:fix": "biome check . --write",
+    "format:check": "biome format .",
+    "format:write": "biome format . --write",
     "build": "npm run build:rs && npm run copy:node && npm run build:ts",
     "artifacts": "napi artifacts",
     "prepublish:napi": "napi prepublish -t npm",
@@ -49,11 +49,7 @@
       ]
     }
   },
-  "files": [
-    "dist",
-    "binding.node",
-    "npm"
-  ],
+  "files": ["dist", "binding.node", "npm"],
   "dependencies": {
     "commander": "^12.0.0"
   },
@@ -67,34 +63,20 @@
     "context-cache-win32-x64-msvc": "0.1.0"
   },
   "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
     "@commitlint/cli": "^19.8.1",
     "@commitlint/config-conventional": "^19.8.1",
-    "@eslint/js": "^9.39.1",
     "@napi-rs/cli": "^2.18.4",
-    "@typescript-eslint/eslint-plugin": "^8.29.0",
-    "@typescript-eslint/parser": "^8.29.0",
     "@types/node": "^22.0.0",
-    "eslint": "^9.39.1",
-    "eslint-config-prettier": "^10.1.2",
-    "globals": "^16.4.0",
     "husky": "^9.1.7",
     "lint-staged": "^15.5.0",
-    "prettier": "^3.5.3",
     "typescript": "^5.9.3"
   },
   "engines": {
     "node": ">=20"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,cjs,mjs}": [
-      "eslint --fix",
-      "prettier --write"
-    ],
-    "*.{json,md,yml,yaml}": [
-      "prettier --write"
-    ],
-    "*.rs": [
-      "rustfmt --edition 2024"
-    ]
+    "*.{ts,tsx,js,cjs,mjs,json}": ["biome check --write"],
+    "*.rs": ["rustfmt --edition 2024"]
   }
 }

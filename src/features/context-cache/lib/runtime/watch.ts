@@ -1,6 +1,6 @@
-import { refresh } from '../../../../index';
-import { DEFAULT_TEXT_EXTENSIONS } from '../../../../constants/core/constants';
 import { watch } from 'node:fs';
+import { DEFAULT_TEXT_EXTENSIONS } from '../../../../constants/core/constants';
+import { refresh } from '../../../../index';
 
 export function watchRepo(repoRoot: string): void {
   let timer: ReturnType<typeof setTimeout> | null = null;
@@ -25,7 +25,7 @@ export function watchRepo(repoRoot: string): void {
 
   const watcher = watch(repoRoot, { recursive: true }, (_event, filename) => {
     if (!filename) return;
-    const ext = '.' + String(filename).split('.').pop();
+    const ext = `.${String(filename).split('.').pop()}`;
     if (!DEFAULT_TEXT_EXTENSIONS.includes(ext)) return;
     scheduleRefresh();
   });

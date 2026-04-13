@@ -1,62 +1,62 @@
 #!/usr/bin/env node
-import { existsSync, writeFileSync, mkdirSync, readFileSync } from 'node:fs';
-import { join, isAbsolute, dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join } from 'node:path';
 import { Command } from 'commander';
 import {
-  refresh,
-  status,
-  formatPrompt,
-  detectPreset,
-  getCachePath,
-  getConfigPath,
-  buildGraph,
-  buildOrUpdateGraph,
-  graphStatus,
-  queryGraph,
-  detectChanges,
-  minimalContext,
-  getGraphPath,
-  runPostprocess,
-  listFlows,
-  getAffectedFlows,
-  listCommunities,
-  getFlow,
-  getCommunity,
-  getReviewContext,
-  findLargeFunctions,
-  architectureOverview,
-  embedGraph,
-  semanticSearch,
-  refactorPreview,
-  applyRefactor,
-  generateWiki,
-  getWikiPage,
-  registerRepo,
-  listRepos,
-  unregisterRepo,
-  crossRepoSearch,
-  crossRepoImpact,
-} from '../index';
-import {
   DEFAULT_MAX_CHARS,
-  PRESETS,
   DEFAULT_TEXT_EXTENSIONS,
   MCP_PROMPTS,
+  PRESETS,
 } from '../constants/core/constants';
-import { getRepoRoot, getChangedFiles, getDefaultPromptPath } from '../utils/core/repo';
-import { loadCachePayload, toPosixPath, stripQuotes, runImpactRadius } from '../utils/core/files';
-import { runQuerySymbol } from '../features/context-cache/utils/core/symbols';
-import {
-  setupVscodeGlobal,
-  copyToClipboard,
-  check,
-  upsertJsonServerConfig,
-  runInstall,
-} from '../features/context-cache/lib/runtime/setup';
-import { watchRepo } from '../features/context-cache/lib/runtime/watch';
 import { startMcpServer } from '../features/context-cache/components/mcp/server';
 import { MCP_TOOLS } from '../features/context-cache/components/mcp/tools';
+import {
+  check,
+  copyToClipboard,
+  runInstall,
+  setupVscodeGlobal,
+  upsertJsonServerConfig,
+} from '../features/context-cache/lib/runtime/setup';
+import { watchRepo } from '../features/context-cache/lib/runtime/watch';
 import { evaluateParity } from '../features/context-cache/utils/core/parity';
+import { runQuerySymbol } from '../features/context-cache/utils/core/symbols';
+import {
+  applyRefactor,
+  architectureOverview,
+  buildGraph,
+  buildOrUpdateGraph,
+  crossRepoImpact,
+  crossRepoSearch,
+  detectChanges,
+  detectPreset,
+  embedGraph,
+  findLargeFunctions,
+  formatPrompt,
+  generateWiki,
+  getAffectedFlows,
+  getCachePath,
+  getCommunity,
+  getConfigPath,
+  getFlow,
+  getGraphPath,
+  getReviewContext,
+  getWikiPage,
+  graphStatus,
+  listCommunities,
+  listFlows,
+  listRepos,
+  minimalContext,
+  queryGraph,
+  refactorPreview,
+  refresh,
+  registerRepo,
+  runPostprocess,
+  semanticSearch,
+  status,
+  unregisterRepo,
+} from '../index';
+import { loadCachePayload, runImpactRadius, stripQuotes, toPosixPath } from '../utils/core/files';
+import { getChangedFiles, getDefaultPromptPath, getRepoRoot } from '../utils/core/repo';
 
 const program = new Command();
 program
@@ -78,10 +78,11 @@ program
     }
     mkdirSync(dirname(configPath), { recursive: true });
     const presetName = opts.preset && PRESETS[opts.preset] ? opts.preset : detectPreset(repoRoot);
-    const { include, exclude } = PRESETS[presetName]!;
+    const preset = PRESETS[presetName] ?? PRESETS.generic;
+    const { include, exclude } = preset;
     writeFileSync(
       configPath,
-      JSON.stringify(
+      `${JSON.stringify(
         {
           preset: presetName,
           mode: 'full',
@@ -93,7 +94,7 @@ program
         },
         null,
         2,
-      ) + '\n',
+      )}\n`,
       'utf8',
     );
     console.log(`Created ${configPath}\nUsing preset: ${presetName}`);
@@ -524,7 +525,7 @@ program
         ? opts.out
         : join(repoRoot, opts.out)
       : getDefaultPromptPath(repoRoot);
-    writeFileSync(outPath, output + '\n', 'utf8');
+    writeFileSync(outPath, `${output}\n`, 'utf8');
     console.log(
       `Refreshed: ${result.cachePath}\nPrompt written: ${outPath} (${output.length.toLocaleString()} chars)`,
     );
@@ -545,7 +546,7 @@ program
         ? opts.out
         : join(repoRoot, opts.out)
       : getDefaultPromptPath(repoRoot);
-    writeFileSync(outPath, output + '\n', 'utf8');
+    writeFileSync(outPath, `${output}\n`, 'utf8');
     console.log(
       `Context cache is ready.\n1) Cache: ${result.cachePath}\n2) Prompt: ${outPath}\n3) Attach this prompt file in Copilot Chat before asking your task.`,
     );

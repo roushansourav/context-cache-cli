@@ -78,9 +78,10 @@ export function extractImportSpecifiers(content: string): string[] {
     /from\s+['"]([^'"]+)['"]/g,
   ];
   for (const pattern of patterns) {
-    let m: RegExpExecArray | null;
-    while ((m = pattern.exec(content)) !== null) {
+    let m: RegExpExecArray | null = pattern.exec(content);
+    while (m !== null) {
       if (m[1]) specs.push(m[1]);
+      m = pattern.exec(content);
     }
   }
   return specs;

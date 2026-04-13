@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
-import { existsSync, writeFileSync, readFileSync, mkdirSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
+import { dirname, join } from 'node:path';
 import { DEFAULT_MAX_CHARS } from '../../../../constants/core/constants';
 
 export function setupVscodeGlobal(): void {
@@ -58,7 +58,7 @@ export function setupVscodeGlobal(): void {
     problemMatcher: [],
   });
 
-  writeFileSync(tasksPath, JSON.stringify(current, null, 2) + '\n', 'utf8');
+  writeFileSync(tasksPath, `${JSON.stringify(current, null, 2)}\n`, 'utf8');
   console.log(`Updated global VS Code tasks: ${tasksPath}`);
 }
 
@@ -108,7 +108,7 @@ export function upsertJsonServerConfig(
     console.log(JSON.stringify(data, null, 2));
     return;
   }
-  writeFileSync(filePath, JSON.stringify(data, null, 2) + '\n', 'utf8');
+  writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
   console.log(`Updated ${filePath}`);
 }
 
@@ -157,7 +157,7 @@ export function runInstall(opts: { platform: string; dryRun?: boolean }): void {
     if (dryRun) {
       console.log(`[dry-run] Would write ${helperPath}`);
     } else {
-      writeFileSync(helperPath, content + '\n', 'utf8');
+      writeFileSync(helperPath, `${content}\n`, 'utf8');
       console.log(`Wrote ${helperPath}`);
       setupVscodeGlobal();
     }

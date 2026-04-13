@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
-import { basename, join } from 'node:path';
-import { homedir } from 'node:os';
 import { mkdirSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, join } from 'node:path';
 import { getCachePath } from '../../index';
 
 export function getRepoRoot(): string {
