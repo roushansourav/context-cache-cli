@@ -81,6 +81,79 @@ Fallback parser remains active for unsupported grammars (for example PHP/Lua tod
 context-cache <command> [options]
 ```
 
+## NPM Publishing (No Rust Required For Users)
+
+This project is configured to publish prebuilt native binaries so end users can run:
+
+```bash
+npm install -g context-cache
+```
+
+without installing Cargo/Rust locally.
+
+How it works:
+
+- Root package: `context-cache`
+- Platform packages (optional dependencies):
+	- `context-cache-darwin-arm64`
+	- `context-cache-darwin-x64`
+	- `context-cache-linux-arm64-gnu`
+	- `context-cache-linux-x64-gnu`
+	- `context-cache-win32-arm64-msvc`
+	- `context-cache-win32-x64-msvc`
+
+The runtime loader first attempts the matching prebuilt package for the current OS/arch, then falls back to local `binding.node` for developer builds.
+
+### Release Flow
+
+1. Tag a release (for example `v0.1.1`).
+2. GitHub Actions workflow builds native artifacts for all configured targets.
+3. Workflow publishes packages to npm using `NPM_TOKEN`.
+
+Workflow file: `.github/workflows/release.yml`
+
+Required GitHub secret:
+
+- `NPM_TOKEN` (npm automation token with publish rights)
+
+### Dry-Run Release Checklist
+
+Before creating a release tag, run this checklist locally:
+
+```bash
+# 1) Clean install
+npm ci
+
+# 2) Ensure TypeScript and native build are healthy
+npm run build
+
+# 3) Ensure tests pass
+npm test
+
+# 4) Verify CLI starts
+node dist/bin/cli.js --help
+
+# 5) Generate npm prebuild package metadata
+npm run prepublish:napi
+```
+
+Then validate release assets:
+
+1. Confirm expected platform packages are generated under `npm/`.
+2. Confirm `package.json` version is correct.
+3. Confirm `NPM_TOKEN` is present in repository secrets.
+4. Create tag and push (for example `git tag v0.1.1 && git push origin v0.1.1`).
+
+Local commands used by the release pipeline:
+
+```bash
+# local native build for your machine
+npm run build:native
+
+# generate npm prebuild package metadata/artifacts
+npm run prepublish:napi
+```
+
 ## Full Command Reference (With Examples)
 
 ### Project Setup And Cache

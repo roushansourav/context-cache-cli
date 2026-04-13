@@ -15,19 +15,47 @@
   "scripts": {
     "build:rs": "cargo build --release --manifest-path src/lib/rust/Cargo.toml",
     "copy:node": "node scripts/copy-binding.js",
+    "build:native": "napi build --platform --release --manifest-path src/lib/rust/Cargo.toml --output-dir .",
     "build:ts": "tsc -p tsconfig.json",
     "build": "npm run build:rs && npm run copy:node && npm run build:ts",
+    "artifacts": "napi artifacts",
+    "prepublish:napi": "napi prepublish -t npm",
     "test": "npm run build && node --test tests/*.test.js",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build && npm run prepublish:napi"
+  },
+  "napi": {
+    "name": "context-cache",
+    "triples": {
+      "defaults": true,
+      "additional": [
+        "aarch64-apple-darwin",
+        "aarch64-unknown-linux-gnu",
+        "x86_64-unknown-linux-gnu",
+        "x86_64-unknown-linux-musl",
+        "x86_64-pc-windows-msvc",
+        "aarch64-pc-windows-msvc"
+      ]
+    }
   },
   "files": [
     "dist",
-    "binding.node"
+    "binding.node",
+    "npm"
   ],
   "dependencies": {
     "commander": "^12.0.0"
   },
+  "optionalDependencies": {
+    "context-cache-darwin-arm64": "0.1.0",
+    "context-cache-darwin-x64": "0.1.0",
+    "context-cache-linux-arm64-gnu": "0.1.0",
+    "context-cache-linux-x64-gnu": "0.1.0",
+    "context-cache-linux-x64-musl": "0.1.0",
+    "context-cache-win32-arm64-msvc": "0.1.0",
+    "context-cache-win32-x64-msvc": "0.1.0"
+  },
   "devDependencies": {
+    "@napi-rs/cli": "^2.18.4",
     "@types/node": "^22.0.0",
     "typescript": "^5.4.0"
   },

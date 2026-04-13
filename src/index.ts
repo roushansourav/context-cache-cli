@@ -1,6 +1,15 @@
 import { join } from 'node:path';
 
 function loadNativeBinding(): NativeBinding {
+  const prebuiltPackages = packageCandidates();
+  for (const pkg of prebuiltPackages) {
+    try {
+      return require(pkg) as NativeBinding;
+    } catch {
+      // Keep trying other optional prebuilt packages.
+    }
+  }
+
   const packageRoot = join(__dirname, '..');
   const candidates = [
     join(packageRoot, 'binding.node'),
@@ -11,7 +20,48 @@ function loadNativeBinding(): NativeBinding {
   for (const p of candidates) {
     try { return require(p) as NativeBinding; } catch { continue; }
   }
-  throw new Error('context-cache: failed to load native binding.\nRun `npm run build` inside the context-cache-cli package first.');
+
+  throw new Error(
+    [
+      'context-cache: failed to load native binding.',
+      'Install a matching prebuilt package for your platform, or build locally with `npm run build` (requires Rust/Cargo).',
+      `Detected platform=${process.platform} arch=${process.arch}`,
+    ].join('\n'),
+  );
+}
+
+function packageCandidates(): string[] {
+  const platform = process.platform;
+  const arch = process.arch;
+
+  if (platform === 'darwin' && arch === 'arm64') return ['context-cache-darwin-arm64'];
+  if (platform === 'darwin' && arch === 'x64') return ['context-cache-darwin-x64'];
+
+  if (platform === 'linux' && arch === 'arm64') {
+    return ['context-cache-linux-arm64-gnu'];
+  }
+  if (platform === 'linux' && arch === 'x64') {
+    return isMusl() ? ['context-cache-linux-x64-musl', 'context-cache-linux-x64-gnu'] : ['context-cache-linux-x64-gnu', 'context-cache-linux-x64-musl'];
+  }
+
+  if (platform === 'win32' && arch === 'arm64') return ['context-cache-win32-arm64-msvc'];
+  if (platform === 'win32' && arch === 'x64') return ['context-cache-win32-x64-msvc'];
+
+  return [];
+}
+
+function isMusl(): boolean {
+  if (process.platform !== 'linux') return false;
+  try {
+    const report = (process as NodeJS.Process & {
+      report?: { getReport?: () => unknown };
+    }).report;
+    const runtime = report?.getReport?.() as { header?: { glibcVersionRuntime?: string } } | undefined;
+    const glibc = runtime?.header?.glibcVersionRuntime;
+    return !glibc;
+  } catch {
+    return false;
+  }
 }
 
 export interface FileEntry { path: string; hash: string; mtimeMs: number; size: number; mode: string; content?: string; summary: string; }
