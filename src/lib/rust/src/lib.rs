@@ -249,6 +249,54 @@ pub fn status(repo_root: String) -> JsStatusResult {
     }
 }
 
+/// Return the path where the cache file is stored for this repo.
+#[napi]
+pub fn get_cache_path(repo_root: String) -> String {
+    let path = PathBuf::from(&repo_root);
+    cache::cache_path(&path).to_string_lossy().into_owned()
+}
+
+/// Return the global config path for this repo.
+#[napi]
+pub fn get_config_path(repo_root: String) -> String {
+    let path = PathBuf::from(&repo_root);
+    config::CacheConfig::global_config_path(&path)
+        .to_string_lossy()
+        .into_owned()
+}
+
+/// Format the cached prompt for a repo, truncating to max_chars.
+#[napi]
+pub fn format_prompt(repo_root: String, max_chars: i64) -> String {
+    let path = PathBuf::from(&repo_root);
+    match cache::load_cache(&path) {
+        None => String::new(),
+        Some(payload) => cache::format_prompt(&payload, max_chars as usize),
+    }
+}
+
+/// Detect the framework preset for this repo based on config files present.
+#[napi]
+pub fn detect_preset(repo_root: String) -> String {
+    let path = PathBuf::from(&repo_root);
+    if path.join("nx.json").exists() || path.join(".nx").exists() {
+        return "nx".to_string();
+    }
+    if path.join("next.config.js").exists()
+        || path.join("next.config.ts").exists()
+        || path.join("next.config.mjs").exists()
+    {
+        return "nextjs".to_string();
+    }
+    if path.join("requirements.txt").exists()
+        || path.join("pyproject.toml").exists()
+        || path.join("setup.py").exists()
+    {
+        return "python".to_string();
+    }
+    "generic".to_string()
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // Internal helpers
 // ──────────────────────────────────────────────────────────────────────────────
