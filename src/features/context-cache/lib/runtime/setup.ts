@@ -143,23 +143,41 @@ export function runInstall(opts: { platform: string; dryRun?: boolean }): void {
     );
 
   if (applyFor('copilot')) {
-    const helperPath = join(homedir(), '.context-cache-store', 'copilot', 'README.md');
-    mkdirSync(dirname(helperPath), { recursive: true });
-    const content = [
-      '# context-cache Copilot Integration',
-      '',
-      '1. Run: context-cache graph-build --refresh',
-      '2. Run: context-cache mcp-serve',
-      '3. In VS Code, attach prompt via context-cache ready or prompt-copy.',
-      '',
-      'Optional: run context-cache vscode-setup to add user tasks.',
-    ].join('\n');
-    if (dryRun) {
-      console.log(`[dry-run] Would write ${helperPath}`);
-    } else {
-      writeFileSync(helperPath, `${content}\n`, 'utf8');
-      console.log(`Wrote ${helperPath}`);
-      setupVscodeGlobal();
+    // 1. Global VS Code MCP config (~/.vscode/mcp.json) — picked up by all workspaces
+    const globalMcpPath = join(homedir(), '.vscode', 'mcp.json');
+    upsertVscodeMcpConfig(globalMcpPath, dryRun);
+
+    // 2. VS Code user tasks (Refresh / Prompt Ready / Watch)
+    if (!dryRun) setupVscodeGlobal();
+  }
+}
+
+/**
+ * Upsert context-cache into a VS Code mcp.json file.
+ * VS Code uses { "servers": { ... } } (not { "mcpServers": { ... } }).
+ */
+function upsertVscodeMcpConfig(filePath: string, dryRun: boolean): void {
+  mkdirSync(dirname(filePath), { recursive: true });
+  let data: Record<string, unknown> = {};
+  if (existsSync(filePath)) {
+    try {
+      data = JSON.parse(readFileSync(filePath, 'utf8')) as Record<string, unknown>;
+    } catch {
+      data = {};
     }
   }
+  const servers = (data.servers as Record<string, unknown> | undefined) ?? {};
+  servers['context-cache'] = {
+    type: 'stdio',
+    command: 'context-cache',
+    args: ['mcp-serve'],
+  };
+  data.servers = servers;
+  if (dryRun) {
+    console.log(`[dry-run] Would write ${filePath}`);
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+  writeFileSync(filePath, `${JSON.stringify(data, null, 2)}\n`, 'utf8');
+  console.log(`Updated ${filePath}`);
 }
