@@ -112,17 +112,33 @@ export function upsertJsonServerConfig(
   console.log(`Updated ${filePath}`);
 }
 
-export function runInstall(opts: { platform: string; dryRun?: boolean }): void {
+export function runInstall(opts: { platform: string; dryRun?: boolean; repo?: string }): void {
   const target = (opts.platform ?? 'all').toLowerCase();
   const dryRun = Boolean(opts.dryRun);
   const applyFor = (name: string): boolean => target === 'all' || target === name;
+
+  // Resolve the repo root to bake into configs (so the server works regardless of VS Code's cwd)
+  let repoRoot: string | undefined = opts.repo;
+  if (!repoRoot) {
+    try {
+      repoRoot =
+        execSync('git rev-parse --show-toplevel', {
+          encoding: 'utf8',
+          stdio: ['ignore', 'pipe', 'ignore'],
+        }).trim() || undefined;
+    } catch {
+      repoRoot = undefined;
+    }
+  }
+
+  const mcpArgs = repoRoot ? ['mcp-serve', '--repo', repoRoot] : ['mcp-serve'];
 
   if (applyFor('claude'))
     upsertJsonServerConfig(
       join(homedir(), '.claude', 'mcp.json'),
       'context-cache',
       'context-cache',
-      ['mcp-serve'],
+      mcpArgs,
       dryRun,
     );
   if (applyFor('codex'))
@@ -130,7 +146,7 @@ export function runInstall(opts: { platform: string; dryRun?: boolean }): void {
       join(homedir(), '.codex', 'mcp.json'),
       'context-cache',
       'context-cache',
-      ['mcp-serve'],
+      mcpArgs,
       dryRun,
     );
   if (applyFor('cursor'))
@@ -138,14 +154,14 @@ export function runInstall(opts: { platform: string; dryRun?: boolean }): void {
       join(homedir(), '.cursor', 'mcp.json'),
       'context-cache',
       'context-cache',
-      ['mcp-serve'],
+      mcpArgs,
       dryRun,
     );
 
   if (applyFor('copilot')) {
     // 1. Global VS Code MCP config (~/.vscode/mcp.json) — picked up by all workspaces
     const globalMcpPath = join(homedir(), '.vscode', 'mcp.json');
-    upsertVscodeMcpConfig(globalMcpPath, dryRun);
+    upsertVscodeMcpConfig(globalMcpPath, mcpArgs, dryRun);
 
     // 2. VS Code user tasks (Refresh / Prompt Ready / Watch)
     if (!dryRun) setupVscodeGlobal();
@@ -156,7 +172,7 @@ export function runInstall(opts: { platform: string; dryRun?: boolean }): void {
  * Upsert context-cache into a VS Code mcp.json file.
  * VS Code uses { "servers": { ... } } (not { "mcpServers": { ... } }).
  */
-function upsertVscodeMcpConfig(filePath: string, dryRun: boolean): void {
+function upsertVscodeMcpConfig(filePath: string, args: string[], dryRun: boolean): void {
   mkdirSync(dirname(filePath), { recursive: true });
   let data: Record<string, unknown> = {};
   if (existsSync(filePath)) {
@@ -170,7 +186,7 @@ function upsertVscodeMcpConfig(filePath: string, dryRun: boolean): void {
   servers['context-cache'] = {
     type: 'stdio',
     command: 'context-cache',
-    args: ['mcp-serve'],
+    args,
   };
   data.servers = servers;
   if (dryRun) {

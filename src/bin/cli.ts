@@ -284,8 +284,9 @@ program
   .command('install')
   .description('Install MCP server config for AI tools')
   .option('--platform <name>', 'all|claude|codex|cursor|copilot', 'all')
+  .option('--repo <path>', 'Repo root to bake into MCP config (defaults to cwd git root)')
   .option('--dry-run', 'Preview without writing')
-  .action((opts: { platform: string; dryRun?: boolean }) => runInstall(opts));
+  .action((opts: { platform: string; repo?: string; dryRun?: boolean }) => runInstall(opts));
 
 program
   .command('detect-changes')
@@ -468,11 +469,17 @@ program
 program
   .command('mcp-serve')
   .description('Run MCP stdio server for AI integrations')
-  .action(() => {
-    const repoRoot = getRepoRoot();
-    if (!existsSync(getGraphPath(repoRoot))) {
-      console.error('Graph DB not found. Run `context-cache graph-build --refresh` first.');
-      process.exit(1);
+  .option('--repo <path>', 'Repo root to serve (defaults to cwd git root)')
+  .action((opts: { repo?: string }) => {
+    let repoRoot: string;
+    if (opts.repo) {
+      repoRoot = opts.repo;
+    } else {
+      try {
+        repoRoot = getRepoRoot();
+      } catch {
+        repoRoot = process.cwd();
+      }
     }
     startMcpServer(repoRoot);
   });
