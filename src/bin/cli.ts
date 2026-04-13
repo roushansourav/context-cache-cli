@@ -112,7 +112,8 @@ program
   .option('--full', 'Force full rebuild instead of incremental update')
   .action((opts: { refresh?: boolean; full?: boolean }) => {
     const repoRoot = getRepoRoot();
-    if (opts.refresh) refresh(repoRoot);
+    const cacheExists = status(repoRoot).exists;
+    if (opts.refresh || !cacheExists) refresh(repoRoot);
     const dbPath = opts.full ? buildGraph(repoRoot) : buildOrUpdateGraph(repoRoot, false);
     const s = graphStatus(repoRoot);
     console.log(
